@@ -255,7 +255,6 @@ string readMPU(){
 }
 
 
-
 void sendCommand(float channel1, float channel2, float channel3, float channel4){
         //TODO - translate to PWM signals and send
         int fh;
