@@ -62,12 +62,6 @@ const string doubleToStr(double x){
   return ss.str();
 }
 
-const string intToStr(int x){
-  stringstream ss;
-  ss << x;
-  return ss.str();
-}
-
 //initialize device
 void init_i2c_device(const char* bus, char device,int &fh){
   fh = open(bus, O_RDWR);       
@@ -392,7 +386,7 @@ int main(void){
             
             if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
               cout<<"Checksum error."<<endl;
-          }
+    }
 
     if (msg[0]=="GPGGA"){
       //cout << "GGA time: " + msg[1].substr(0,2)+":"+msg[1].substr(2,2)+":" +msg[1].substr(4,8)+ " UTC"<< endl;
@@ -404,162 +398,130 @@ int main(void){
         lat *= -1.0;
       }
 
-            if( msg[5] == "W")
-            {
-                lon *= -1.0;
-            }
+      if( msg[5] == "W"){
+        lon *= -1.0;
+      }
             
-            GPS_Data.lat = lat;
-            GPS_Data.lon = lon;
+      GPS_Data.lat = lat;
+      GPS_Data.lon = lon;
 
-            //printf("GGA Lattitude: %12.9f %s\n",lat, msg[3].c_str());
-            //printf("GGA Longitude: %12.9f %s\n",lon, msg[5].c_str());
+      //printf("GGA Lattitude: %12.9f %s\n",lat, msg[3].c_str());
+      //printf("GGA Longitude: %12.9f %s\n",lon, msg[5].c_str());
 
+      if (msg[6] == "0"){
+        //cout<<"No Fix."<<endl;
+        GPS_Data.val = "0";
+      }
+      else if (msg[6] == "1"){ 
+        //cout<<"GPS Fix."<<endl;
+        GPS_Data.val = "1";
+      }
+      else if (msg[6] == "2"){ 
+        //cout<<"DGPS Fix."<<endl;
+      }
+      else if (msg[6] == "4"){ 
+        //cout<<"RTK, fixed integers"<<endl;
+      }
+      else if (msg[6] == "5"){ 
+        //cout<<"RTK, float integers"<<endl;
+      }
 
-            if (msg[6] == "0")
-            {
-              //cout<<"No Fix."<<endl;
-              GPS_Data.val = "0";
-            }
-            else if (msg[6] == "1")
-            { 
-              //cout<<"GPS Fix."<<endl;
-              GPS_Data.val = "1";
-            }
-            else if (msg[6] == "2")
-            { 
-              //cout<<"DGPS Fix."<<endl;
-            }
-            else if (msg[6] == "4")
-            { 
-              //cout<<"RTK, fixed integers"<<endl;
-            }
-            else if (msg[6] == "5")
-            { 
-              //cout<<"RTK, float integers"<<endl;
-            }
+      //cout << "Number of sattelites used: "+msg[7]<<endl;
+      //cout << "HDOP: "+msg[8]<<endl;
+      //cout << "MSL height: "+msg[9] + msg[10]<<endl;
+      //cout << "Geoid separation: "+msg[11]+msg[12]<<endl;
 
+      GPS_Data.alt = atof(msg[9].c_str());
 
-            //cout << "Number of sattelites used: "+msg[7]<<endl;
-            //cout << "HDOP: "+msg[8]<<endl;
-            //cout << "MSL height: "+msg[9] + msg[10]<<endl;
-            //cout << "Geoid separation: "+msg[11]+msg[12]<<endl;
-
-            GPS_Data.alt = atof(msg[9].c_str());
-
-            if (msg[13] == "")
-            {
-              //cout<<"DGPS not used"<<endl;
-            }
-            else 
-            { 
-              //cout<<"DGPS data age: "+msg[13]<<endl;
-            }                
+      if (msg[13] == ""){
+        //cout<<"DGPS not used"<<endl;
+      }
+      else { 
+        //cout<<"DGPS data age: "+msg[13]<<endl;
+      }                
               
-            //cout << checksum(checksumChar) <<endl;
-            //cout << strtoul(checksumNum, NULL, 16) <<endl;
+      //cout << checksum(checksumChar) <<endl;
+      //cout << strtoul(checksumNum, NULL, 16) <<endl;
 
-         
-            if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
-              cout<<"Checksum error."<<endl;
-           
+      if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
+              cout<<"Checksum error."<<endl; 
           }
 
-          if (msg[0]=="GPVTG")
-          {
+    if (msg[0]=="GPVTG"){
+    }
 
-            
-          }
+    if (msg[0]=="GPRMC"){
+      float speed = atof(msg[7].c_str())*0.514444f;
+      //printf("Speed: %6.3f\n",speed);
+      GPS_Data.speed = speed;
+    }
 
-          if (msg[0]=="GPRMC")
-          {
-            float speed = atof(msg[7].c_str())*0.514444f;
-            //printf("Speed: %6.3f\n",speed);
-            GPS_Data.speed = speed;
-          }
+    oldtime = newtime;
+    newtime = GPS_Data.tim;  
+    if (newtime!=oldtime){
+             
+      fflush(stdout);
+      string dataMPU = readMPU();
+      readBMP180();
 
+      int fh;
+      uint8_t data[3];
+      init_i2c_device("/dev/i2c-1", DRIVE, fh);
+     
+      data[0] = 0x21;
+      write(fh,data,1);
+      read(fh, data, 3);
+      int volt = data[2]<<8;
+      volt = volt+data[1];
+      double voltage = (volt/1024.0)*5.2*(102.0/27.0);
+      printf("comm val %u %u %u\n", data[0] & 0xff, data[1] & 0xff, data[2] & 0xff);
+      printf("voltage , v. per cell %u %5.2f %4.2f\n", volt, voltage, voltage/3.0);
 
-          oldtime = newtime;
-          newtime = GPS_Data.tim;  
-          if (newtime!=oldtime){
-          
-            
-           
-        fflush(stdout);
-        string dataMPU = readMPU();
-        readBMP180();
-
-        int fh;
-        uint8_t data[3];
-        init_i2c_device("/dev/i2c-1", DRIVE, fh);
-       
-        data[0] = 0x21;
-        write(fh,data,1);
-        read(fh, data, 3);
-        int volt = data[2]<<8;
-        volt = volt+data[1];
-        double voltage = (volt/1024.0)*5.2*(102.0/27.0);
-        printf("comm val %u %u %u\n", data[0] & 0xff, data[1] & 0xff, data[2] & 0xff);
-        printf("voltage , v. per cell %u %5.2f %4.2f\n", volt, voltage, voltage/3.0);
-
+      close(fh);
         
-        close(fh);
+      strcpy(u_msg,(GPS_Data.val +";"+doubleToStr(GPS_Data.lat)+";"+doubleToStr(GPS_Data.lon)+";"+doubleToStr(GPS_Data.alt)+";"+dataMPU+";"+intToStr(volt)).c_str());
+      //printf("Data: %s\n" , u_msg);
         
-        strcpy(u_msg,(GPS_Data.val +";"+doubleToStr(GPS_Data.lat)+";"+doubleToStr(GPS_Data.lon)+";"+doubleToStr(GPS_Data.alt)+";"+dataMPU+";"+intToStr(volt)).c_str());
-        //printf("Data: %s\n" , u_msg);
-        
-        
-        if (sendto(s, u_msg, strlen(u_msg), 0, (struct sockaddr*)&addrDest, sizeof(addrDest)) == -1)
-        {
-            die("sendto()");
-        }
+      if (sendto(s, u_msg, strlen(u_msg), 0, (struct sockaddr*)&addrDest, sizeof(addrDest)) == -1){
+        die("sendto()");
+      }
+     }
 
+    FD_ZERO(&readfds);
+    FD_SET(s, &readfds);
 
-        }
+    tv.tv_sec = 0;
+    tv.tv_usec = 0; 
+    int rv;
+    rv = select(s + 1, &readfds, NULL, NULL, &tv); 
 
-        FD_ZERO(&readfds);
-        FD_SET(s, &readfds);
+    if(rv){
+      memset(buf, 0, sizeof(buf));
+      if ((recvfrom(s, buf, BUFLEN, 0, (struct sockaddr *) &addrLocal, &slen)) == -1){
+        die("recvfrom()");
+      }
+      //cout<<buf;
+      string token;
+      int index = 0;
+      string msg[100];
 
-        tv.tv_sec = 0;
-        tv.tv_usec = 0; 
-        int rv;
-        rv = select(s + 1, &readfds, NULL, NULL, &tv); 
+      string myText = string(buf);
+      istringstream iss(myText);
 
+      //cout << myText <<endl;
+      iss.str(myText);
+      iss.clear();
+      while(getline(iss, token, ';')){
+        msg[index]=token;
+        //cout << msg[index] << endl;
+        index++;
+      }
 
-        if(rv){
-          memset(buf, 0, sizeof(buf));
-          if ((recvfrom(s, buf, BUFLEN, 0, (struct sockaddr *) &addrLocal, &slen)) == -1)
-        {
-            die("recvfrom()");
-        }
-        //cout<<buf;
-        string token;
-          int index = 0;
-          string msg[100];
-
-          
-
-          string myText = string(buf);
-          istringstream iss(myText);
-
-          //cout << myText <<endl;
-          iss.str(myText);
-          iss.clear();
-          while(getline(iss, token, ';'))
-          {
-                
-                msg[index]=token;
-                //cout << msg[index] << endl;
-                index++;
-          }
-
-          sendCommand(atof(msg[1].c_str()),atof(msg[2].c_str()),atof(msg[3].c_str()),atof(msg[4].c_str()));
-        }
-
-        
-        }
-           close(s);
-           free(line);
-           fclose(stream);
-           exit(EXIT_SUCCESS);
+      sendCommand(atof(msg[1].c_str()),atof(msg[2].c_str()),atof(msg[3].c_str()),atof(msg[4].c_str()));
+    }
+  }
+  close(s);
+  free(line);
+  fclose(stream);
+  exit(EXIT_SUCCESS);
 }
