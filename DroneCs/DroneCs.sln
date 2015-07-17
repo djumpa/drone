@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Express 2012 for Windows Desktop
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DroneCs", "DroneCs.csproj", "{FC7A3D97-B1C2-41F8-BB80-30831CAC410E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FC7A3D97-B1C2-41F8-BB80-30831CAC410E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC7A3D97-B1C2-41F8-BB80-30831CAC410E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC7A3D97-B1C2-41F8-BB80-30831CAC410E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC7A3D97-B1C2-41F8-BB80-30831CAC410E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
