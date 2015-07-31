@@ -21,7 +21,7 @@
 #define BMP180 0x77
 using namespace std;
 
-typedef struct 
+typedef struct
 {
   float tim;
   double lat;
@@ -52,7 +52,7 @@ void die(string s){
 
 void my_handler(int s){
   printf("Caught signal %d\n",s);
-  exit(1); 
+  exit(1);
 }
 
 const string doubleToStr(double x){
@@ -64,11 +64,11 @@ const string doubleToStr(double x){
 
 //initialize device
 void init_i2c_device(const char* bus, char device,int &fh){
-  fh = open(bus, O_RDWR);       
-  if (fh < 0) 
+  fh = open(bus, O_RDWR);
+  if (fh < 0)
     die("Failed opening bus");
   if (ioctl(fh, I2C_SLAVE, device) < 0)
-    die("ioctl(I2C_SLAVE)");               
+    die("ioctl(I2C_SLAVE)");
 }
 
 void i2c_read_byte(int&fh, uint8_t command, uint8_t *data){
@@ -84,13 +84,13 @@ int i2c_read_word(int& fd, uint8_t adr)
   i2c_read_byte(fd,adr, &datas[0]);
   val=datas[0];
   val = val << 8;
-  
+
   i2c_read_byte(fd,adr, &datas[1]);
   val += datas[1];
-  
+
   if (val >= 0x8000)
     val = -(65536 - val);
-  
+
   return val;
 }
 
@@ -102,7 +102,7 @@ unsigned int i2c_read_word_unsigned(int& fd, uint8_t adr)
   i2c_read_byte(fd,adr, &datas[0]);
   val=datas[0];
   val = val << 8;
-  
+
   i2c_read_byte(fd,adr, &datas[1]);
   val += datas[1];
 
@@ -197,7 +197,7 @@ void readBMP180(){
   //cout<<ac[0]<<" "<<ac[1]<<" "<<ac[2]<<" "<<ac[3]<<" "<<ac[4]<<" "<<ac[5]<<" "<<endl;
   //cout<<b[0]<<" "<<b[1]<<" "<<endl;
   //cout<<m[0]<<" "<<m[1]<<" "<<m[2]<<endl;
-        
+
   close(fh);
 
 }
@@ -227,7 +227,7 @@ string readMPU(){
   //printf("X: %f Y: %f\r", get_x_rotation(accScaled[0], accScaled[1], accScaled[2]), get_y_rotation(accScaled[0], accScaled[1], accScaled[2]));
   //accOut =doubleToStr(accScaled[0])+";"+doubleToStr(accScaled[1])+";"+doubleToStr(accScaled[2]);
   accOut =doubleToStr(get_x_rotation(accScaled[0], accScaled[1], accScaled[2]))+";"+doubleToStr(get_y_rotation(accScaled[0], accScaled[1], accScaled[2]));
-        
+
   close(fh);
   return accOut;
 
@@ -238,16 +238,16 @@ void sendCommand(float channel1, float channel2, float channel3, float channel4)
   int fh;
   uint8_t data[5];
   init_i2c_device("/dev/i2c-1", DRIVE, fh);
-             
+
   data[0] = 0x10;
   data[1] = (uint8_t)channel1;
   data[2] = (uint8_t)channel2;
   data[3] = (uint8_t)channel3;
   data[4] = (uint8_t)channel4;
   write(fh, data, 5);
-       
+
   data[0] = 0x20;
-  write(fh,data,1); 
+  write(fh,data,1);
   read(fh, data, 5);
 
   //printf("Channel 1,2,3,4 0x%02X 0x%02X 0x%02X 0x%02X\n", data[0] & 0xff,data[1] & 0xff,data[2] & 0xff,data[3] & 0xff);
@@ -317,11 +317,11 @@ int main(void){
     int index = 0;
     string msg[100];
 
-    getline(iss, token, '*');  
+    getline(iss, token, '*');
     char * checksumChar = new char [token.length()+1];
     strcpy (checksumChar, token.substr(1,token.length()).c_str());
 
-    getline(iss, token, '*');  
+    getline(iss, token, '*');
     char * checksumNum = new char [token.length()+1];
     strcpy (checksumNum, token.c_str());
 
@@ -334,7 +334,7 @@ int main(void){
       msg[index]=token;
       //cout << msg[index] << endl;
       index++;
-    }          
+    }
 
     //starts with RMC, ends with GLL
     if (msg[0]=="GPGLL"){
@@ -348,9 +348,9 @@ int main(void){
       //printf("String: %s\nChecksum: 0x%02X\n", checksumChar, checksum(checksumChar));
       checksum(checksumChar);
       if (msg[6]!="A")
-        //cout<<"Data invalid."<<endl; 
+        //cout<<"Data invalid."<<endl;
         //cout << checksum(checksumChar) <<endl;
-        //cout << strtoul(checksumNum, NULL, 16) <<endl;       
+        //cout << strtoul(checksumNum, NULL, 16) <<endl;
         if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
           //cout<<"Checksum error."<<endl;
           break;
@@ -363,17 +363,17 @@ int main(void){
             if (msg[1] == "M"){
               //cout<<"Manual Mode."<<endl;
             }
-            else if (msg[1] == "A"){ 
+            else if (msg[1] == "A"){
               //cout<<"Automatic Mode."<<endl;
             }
             if (msg[2] == "1"){
               //cout<<"Fix mode not available."<<endl;
             }
-            else if (msg[2] == "2"){ 
+            else if (msg[2] == "2"){
               //cout<<"2D Fix"<<endl;
             }
             else if (msg[2] == "3")
-            { 
+            {
               //cout<<"3D Fix."<<endl;
             }
 
@@ -383,7 +383,7 @@ int main(void){
 
             GPS_Data.hdop = (float) atof(msg[16].c_str());
             GPS_Data.vdop = (float) atof(msg[17].c_str());
-            
+
             if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
               cout<<"Checksum error."<<endl;
     }
@@ -391,6 +391,7 @@ int main(void){
     if (msg[0]=="GPGGA"){
       //cout << "GGA time: " + msg[1].substr(0,2)+":"+msg[1].substr(2,2)+":" +msg[1].substr(4,8)+ " UTC"<< endl;
       GPS_Data.tim = atof(msg[1].c_str());
+      cout << msg[2].length();
       double lat = atof(msg[2].substr(0,2).c_str())+atof(msg[2].substr(2,msg[2].length()).c_str())/60.0;
       double lon = atof(msg[4].substr(0,3).c_str())+atof(msg[4].substr(3,msg[4].length()).c_str())/60.0;
 
@@ -401,7 +402,7 @@ int main(void){
       if( msg[5] == "W"){
         lon *= -1.0;
       }
-            
+
       GPS_Data.lat = lat;
       GPS_Data.lon = lon;
 
@@ -412,17 +413,17 @@ int main(void){
         //cout<<"No Fix."<<endl;
         GPS_Data.val = "0";
       }
-      else if (msg[6] == "1"){ 
+      else if (msg[6] == "1"){
         //cout<<"GPS Fix."<<endl;
         GPS_Data.val = "1";
       }
-      else if (msg[6] == "2"){ 
+      else if (msg[6] == "2"){
         //cout<<"DGPS Fix."<<endl;
       }
-      else if (msg[6] == "4"){ 
+      else if (msg[6] == "4"){
         //cout<<"RTK, fixed integers"<<endl;
       }
-      else if (msg[6] == "5"){ 
+      else if (msg[6] == "5"){
         //cout<<"RTK, float integers"<<endl;
       }
 
@@ -436,15 +437,15 @@ int main(void){
       if (msg[13] == ""){
         //cout<<"DGPS not used"<<endl;
       }
-      else { 
+      else {
         //cout<<"DGPS data age: "+msg[13]<<endl;
-      }                
-              
+      }
+
       //cout << checksum(checksumChar) <<endl;
       //cout << strtoul(checksumNum, NULL, 16) <<endl;
 
       if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
-              cout<<"Checksum error."<<endl; 
+              cout<<"Checksum error."<<endl;
           }
 
     if (msg[0]=="GPVTG"){
@@ -457,9 +458,9 @@ int main(void){
     }
 
     oldtime = newtime;
-    newtime = GPS_Data.tim;  
+    newtime = GPS_Data.tim;
     if (newtime!=oldtime){
-             
+
       fflush(stdout);
       string dataMPU = readMPU();
       readBMP180();
@@ -467,7 +468,7 @@ int main(void){
       int fh;
       uint8_t data[3];
       init_i2c_device("/dev/i2c-1", DRIVE, fh);
-     
+
       data[0] = 0x21;
       write(fh,data,1);
       read(fh, data, 3);
@@ -478,10 +479,10 @@ int main(void){
       printf("voltage , v. per cell %u %5.2f %4.2f\n", volt, voltage, voltage/3.0);
 
       close(fh);
-        
+
       strcpy(u_msg,(GPS_Data.val +";"+doubleToStr(GPS_Data.lat)+";"+doubleToStr(GPS_Data.lon)+";"+doubleToStr(GPS_Data.alt)+";"+dataMPU+";"+intToStr(volt)).c_str());
       //printf("Data: %s\n" , u_msg);
-        
+
       if (sendto(s, u_msg, strlen(u_msg), 0, (struct sockaddr*)&addrDest, sizeof(addrDest)) == -1){
         die("sendto()");
       }
@@ -491,9 +492,9 @@ int main(void){
     FD_SET(s, &readfds);
 
     tv.tv_sec = 0;
-    tv.tv_usec = 0; 
+    tv.tv_usec = 0;
     int rv;
-    rv = select(s + 1, &readfds, NULL, NULL, &tv); 
+    rv = select(s + 1, &readfds, NULL, NULL, &tv);
 
     if(rv){
       memset(buf, 0, sizeof(buf));
