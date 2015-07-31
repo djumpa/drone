@@ -10,3 +10,9 @@ C:\Users\Filip\Documents\Visual Studio 2012\Projects\DroneCs\obj\Debug\DroneCs.p
 C:\Users\Filip\Desktop\drone\DroneCs\bin\Debug\DroneCs.exe.config
 C:\Users\Filip\Desktop\drone\DroneCs\obj\Debug\DroneCs.exe
 C:\Users\Filip\Desktop\drone\DroneCs\obj\Debug\DroneCs.pdb
+C:\Users\Filip\Desktop\drone\DroneCs\bin\Debug\DroneCs.exe
+C:\Users\Filip\Desktop\drone\DroneCs\bin\Debug\DroneCs.pdb
+C:\Users\Filip\Desktop\drone\DroneCs\obj\Debug\DroneCs.csprojResolveAssemblyReference.cache
+C:\Users\Filip\Desktop\drone\DroneCs\obj\Debug\DroneCs.Form1.resources
+C:\Users\Filip\Desktop\drone\DroneCs\obj\Debug\DroneCs.Properties.Resources.resources
+C:\Users\Filip\Desktop\drone\DroneCs\obj\Debug\DroneCs.csproj.GenerateResource.Cache
