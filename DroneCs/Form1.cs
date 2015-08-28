@@ -116,11 +116,13 @@ namespace DroneCs
             if (!string.IsNullOrEmpty(UDPExample.m_data))
             {
                 string[] words = UDPExample.m_data.Split(';');
-                if(words[0]=="1")
-                    label_GPS.Text ="Lattitude: " + words[1] + "\n" + "Longitude: " + words[2] + "\n" + "Height: " + words[3] + "\n";
-                    label_Acc.Text = "X: " + words[4] + "\n" + "Y: " + words[5] + "\n";
-                    float voltage = (Convert.ToSingle(words[6])/1024.0f)*5.2f*(102.0f/27.0f);
-                    label_telemetry.Text = "Voltage: " + voltage +"\n" + "per cell: "+voltage/3;
+                string status = null;
+                if (words[0] == "0")
+                    status = "Invalid data";
+                label_GPS.Text ="Lattitude: " + words[1].ToString() + "\n" + "Longitude: " + words[2].ToString() + "\n" + "Height: " + words[3].ToString() + "\n" + status;
+                label_Acc.Text = "X: " + words[4] + "\n" + "Y: " + words[5] + "\n";
+                float voltage = (Convert.ToSingle(words[6])/1024.0f)*5.2f*(102.0f/27.0f);
+                label_telemetry.Text = "Voltage: " + voltage +"\n" + "per cell: "+voltage/3+ "\n" + "Pressure: " + words[7].ToString() + "\n" + "Temp: " + words[8].ToString();
                 
             }
 
@@ -252,7 +254,7 @@ public class UDPExample
             {
                 client = new UdpClient();
                 //pripojime se na cil, kteremu chceme zaslat data
-                client.Connect("10.10.1.59", 9999);
+                client.Connect("192.168.1.100", 9999);
                 //enkodujeme retezec a zasleme na cil
                 byte[] data = Encoding.ASCII.GetBytes(m_auto+" ");
                 client.Send(data, data.Length);
