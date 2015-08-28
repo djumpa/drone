@@ -62,6 +62,13 @@ const string doubleToStr(double x){
   return ss.str();
 }
 
+const string intToStr(double x){
+  stringstream ss;
+  ss << x;
+  return ss.str();
+}
+
+
 //initialize device
 void init_i2c_device(const char* bus, char device,int &fh){
   fh = open(bus, O_RDWR);
@@ -125,61 +132,72 @@ double get_x_rotation(double x, double y, double z){
   return (radians * (180.0 / M_PI));
 }
 
-void readBMP180(){
+string readBMP180(){
   int fh;
+  string pressOut;
   uint8_t data[6];
-  int ac[6] , b[2], m[3];
-  double accScaled[3];
+  int ac1 , ac2, ac3, ac4, ac5, ac6;
+  int b1,b2;
+  int mb, mc, md;
 
   init_i2c_device("/dev/i2c-1", BMP180, fh);
 
-  ac[0]=i2c_read_word(fh, 0xAA);
-  ac[1]=i2c_read_word(fh, 0xAC);
-  ac[2]=i2c_read_word(fh, 0xAE);
-  ac[3]=i2c_read_word(fh, 0xB0);
-  ac[4]=i2c_read_word(fh, 0xB2);
-  ac[5]=i2c_read_word(fh, 0xB4);
+  ac1=i2c_read_word(fh, 0xAA);
+  ac2=i2c_read_word(fh, 0xAC);
+  ac3=i2c_read_word(fh, 0xAE);
+  ac4=i2c_read_word_unsigned(fh, 0xB0);
+  ac5=i2c_read_word_unsigned(fh, 0xB2);
+  ac6=i2c_read_word_unsigned(fh, 0xB4);
 
-  b[0]=i2c_read_word(fh, 0xB6);
-  b[1]=i2c_read_word(fh, 0xB8);
+  b1=i2c_read_word(fh, 0xB6);
+  b2=i2c_read_word(fh, 0xB8);
 
-  m[0]=i2c_read_word(fh, 0xBA);
-  m[1]=i2c_read_word(fh, 0xBC);
-  m[2]=i2c_read_word(fh, 0xBE);
+  mb=i2c_read_word(fh, 0xBA);
+  mc=i2c_read_word(fh, 0xBC);
+  md=i2c_read_word(fh, 0xBE);
 
+  //cout << ac1 <<", "<< ac2 <<", "<< ac3 <<", "<< ac4 <<", " <<ac5 <<", "<< ac6 <<", "<< b1 <<", " <<b2 <<", " <<mb <<", " <<mc <<", " << md <<", "<<endl;
   data[0] = 0xF4;
   data[1] = 0x2E;
   write(fh, data, 2);
 
+  usleep(4500);
   unsigned int ut = i2c_read_word_unsigned(fh, 0xF6);
-  double x1 = (ut-ac[5])*ac[4]/(pow(2,15));
-  double x2 = m[1]*pow(2,11)/(x1+m[2]);
-  int b5= x1+x2;
+  //cout << ut <<endl;
+  int x1 = (ut-ac6)*ac5/(pow(2,15));
+  int x2 = mc*pow(2,11)/(x1+md);
+  int b5= x1 + x2;
   double t = (b5+8)/pow(2,4);
   double temp =t/10.0;
-  cout<<temp<<endl;
+  cout<<"Temperature: " << temp << endl;
 
   data[0] = 0xF4;
   data[1] = 0xF4;
   write(fh,data,2);
   int oss = 3;
+  usleep(25500);
+  uint8_t pressureMSB;
+  uint8_t pressureLSB;
+  uint8_t pressureXLSB;
 
-  int pressureMSB = i2c_read_word(fh, 0xF6);
-  int pressureLSB = i2c_read_word(fh, 0xF7);
-  int pressureXLSB = i2c_read_word(fh, 0xF8);
+  i2c_read_byte(fh,0xF6,&pressureMSB);
+  i2c_read_byte(fh,0xF7,&pressureLSB);
+  i2c_read_byte(fh,0xF8,&pressureXLSB);
 
   unsigned int up = ((pressureMSB<<16)+(pressureLSB<<8)+pressureXLSB)>>(8-oss);
-  cout<<up<<endl;
+//  cout<<up<<endl;
+
   int b6 = b5-4000;
-  x1=(b[1]*(b6*b6/pow(2,12)))/pow(2,11);
-  x2=ac[1]*b6/pow(2,11);
+  x1=(b2*(b6*b6/pow(2,12)))/pow(2,11);
+  x2=ac2*b6/pow(2,11);
   int x3 = x1+x2;
-  int b3 = (((ac[0]*4+x3)<<oss)+2)/4;
-  x1=ac[2]*b6/pow(2,13);
-  x2=(b[0]*(b6*b6/pow(2,12)))/pow(2,16);
+  int b3 = (((ac1*4+x3)<<oss)+2)/4;
+  x1=ac3*b6/pow(2,13);
+  x2=(b1*(b6*b6/pow(2,12)))/pow(2,16);
   x3=((x1+x2)+2)/pow(2,2);
 
-  double b4 = ac[3]*(x3+32768)/pow(2,15);
+  //cout <<b6 <<", "<<x1 <<", "<<x2 <<", "<<x3 <<", "<<endl;
+  double b4 = ac4*(x3+32768)/pow(2,15);
   unsigned int b7 = (up-b3)*(50000>>oss);
   double p;
 
@@ -188,18 +206,20 @@ void readBMP180(){
   else
     p = (b7 / b4) * 2;
 
-  x1 = ((double)p/256)*((double)p/256);
+  x1 = (p/256)*(p/256);
   x1 = (x1 *3038)/pow(2,16);
   x2 = (-7357 * p) / pow(2,16);
-  double p_abs = p + (x1 + x2 + 3791) / pow(2,4);
-  double p_abs_hpa = round(p_abs/100);
-  cout <<p<<" "<<p_abs<<" "<<p_abs_hpa<<endl;
+  int p_abs = p + (x1 + x2 + 3791) / pow(2,4);
+
+  cout <<"Pressure: "<< p_abs <<endl;
+  //double alt = 44330.0*(1.0-pow(((double)p_abs/101325.0),1.0/5.255));
+  //cout<<alt<<endl;
   //cout<<ac[0]<<" "<<ac[1]<<" "<<ac[2]<<" "<<ac[3]<<" "<<ac[4]<<" "<<ac[5]<<" "<<endl;
   //cout<<b[0]<<" "<<b[1]<<" "<<endl;
   //cout<<m[0]<<" "<<m[1]<<" "<<m[2]<<endl;
-
+pressOut =intToStr(p_abs)+";"+doubleToStr(temp);
   close(fh);
-
+  return pressOut;
 }
 
 
@@ -296,7 +316,7 @@ int main(void){
   // send "Hello world" from local port 9999 to the host at 1.2.3.4 on its port 8888
   addrDest.sin_family = AF_INET;
   addrDest.sin_port = htons(8888);
-  addrDest.sin_addr.s_addr = inet_addr("10.10.1.57");
+  addrDest.sin_addr.s_addr = inet_addr("192.168.1.7");
 
   FILE *stream;
   char *line = NULL;
@@ -330,9 +350,10 @@ int main(void){
     //cout << myText <<endl;
     iss.str(myText);
     iss.clear();
-    while(getline(iss, token, ','){
+    while(getline(iss, token, ',')){
       msg[index]=token;
       //cout << msg[index] << endl;
+      //cout << index << endl;
       index++;
     }
 
@@ -390,11 +411,16 @@ int main(void){
 
     if (msg[0]=="GPGGA"){
       //cout << "GGA time: " + msg[1].substr(0,2)+":"+msg[1].substr(2,2)+":" +msg[1].substr(4,8)+ " UTC"<< endl;
+      //cout << msg[0];
       GPS_Data.tim = atof(msg[1].c_str());
-      cout << msg[2].length();
-      double lat = atof(msg[2].substr(0,2).c_str())+atof(msg[2].substr(2,msg[2].length()).c_str())/60.0;
-      double lon = atof(msg[4].substr(0,3).c_str())+atof(msg[4].substr(3,msg[4].length()).c_str())/60.0;
 
+      double lat = 0;
+      double lon = 0;
+
+      if(msg[2].length()>0){
+        lat = atof(msg[2].substr(0,2).c_str())+atof(msg[2].substr(2,msg[2].length()).c_str())/60.0;
+        lon = atof(msg[4].substr(0,3).c_str())+atof(msg[4].substr(3,msg[4].length()).c_str())/60.0;
+      }
       if( msg[3] == "S"){
         lat *= -1.0;
       }
@@ -406,8 +432,6 @@ int main(void){
       GPS_Data.lat = lat;
       GPS_Data.lon = lon;
 
-      //printf("GGA Lattitude: %12.9f %s\n",lat, msg[3].c_str());
-      //printf("GGA Longitude: %12.9f %s\n",lon, msg[5].c_str());
 
       if (msg[6] == "0"){
         //cout<<"No Fix."<<endl;
@@ -463,7 +487,7 @@ int main(void){
 
       fflush(stdout);
       string dataMPU = readMPU();
-      readBMP180();
+      string dataBMP180 = readBMP180();
 
       int fh;
       uint8_t data[3];
@@ -475,12 +499,17 @@ int main(void){
       int volt = data[2]<<8;
       volt = volt+data[1];
       double voltage = (volt/1024.0)*5.2*(102.0/27.0);
-      printf("comm val %u %u %u\n", data[0] & 0xff, data[1] & 0xff, data[2] & 0xff);
-      printf("voltage , v. per cell %u %5.2f %4.2f\n", volt, voltage, voltage/3.0);
+      printf("Data drive %u %u %u\n", data[0] & 0xff, data[1] & 0xff, data[2] & 0xff);
+      printf("Voltage: %5.2f, %4.2f per cell\n",  voltage, voltage/3.0);
 
       close(fh);
 
-      strcpy(u_msg,(GPS_Data.val +";"+doubleToStr(GPS_Data.lat)+";"+doubleToStr(GPS_Data.lon)+";"+doubleToStr(GPS_Data.alt)+";"+dataMPU+";"+intToStr(volt)).c_str());
+      cout<<"Time: "<<GPS_Data.tim<<endl;
+      cout<<"Lattitude: "<<GPS_Data.lat<<endl;
+      cout<<"Longitude: "<<GPS_Data.lon<<endl;
+      cout<<"Altitude: "<<GPS_Data.alt<<endl;
+
+      strcpy(u_msg,(GPS_Data.val +";"+doubleToStr(GPS_Data.lat)+";"+doubleToStr(GPS_Data.lon)+";"+doubleToStr(GPS_Data.alt)+";"+dataMPU+";"+intToStr(volt)+";"+dataBMP180).c_str());
       //printf("Data: %s\n" , u_msg);
 
       if (sendto(s, u_msg, strlen(u_msg), 0, (struct sockaddr*)&addrDest, sizeof(addrDest)) == -1){
