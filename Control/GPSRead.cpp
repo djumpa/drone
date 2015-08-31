@@ -13,6 +13,9 @@
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
 #include <cmath>
+#include <chrono>
+#include <thread>
+#include <functional>
 #include "defs.h"
 
 #define BUFLEN 128  //Max length of buffer
@@ -38,19 +41,37 @@ typedef struct
 
 typedef struct
 {
-  float roll;
-  float yaw;
-  float pitch;
+  double roll;
+  double yaw;
+  double pitch;
   float pressure;
   float temperature;
+  float voltage;
 } Telemetry_Data_struct;
 
+typedef struct
+{
+  int mode;
+
+} Control_Data_struct;
+
+Control_Data_struct Control_Data;
 Telemetry_Data_struct Telemetry_Data;
 GPS_Data_struct GPS_Data;
 float oldtime;
 float newtime;
 double g_roll;
 
+void timer_start(std::function<void(void)> func, unsigned int interval)
+{
+	std::thread([func, interval]() {
+		while (true)
+		{
+			func();
+			std::this_thread::sleep_for(std::chrono::milliseconds(interval));
+		}
+	}).detach();
+}
 
 unsigned int checksum(char *s) {
   unsigned int c = 0;
@@ -183,7 +204,7 @@ string readBMP180(){
   int b5= x1 + x2;
   double t = (b5+8)/pow(2,4);
   double temp =t/10.0;
-  cout<<"Temperature: " << temp << endl;
+  //cout<<"Temperature: " << temp << endl;
 
   data[0] = 0xF4;
   data[1] = 0xF4;
@@ -199,7 +220,6 @@ string readBMP180(){
   i2c_read_byte(fh,0xF8,&pressureXLSB);
 
   unsigned int up = ((pressureMSB<<16)+(pressureLSB<<8)+pressureXLSB)>>(8-oss);
-//  cout<<up<<endl;
 
   int b6 = b5-4000;
   x1=(b2*(b6*b6/pow(2,12)))/pow(2,11);
@@ -225,13 +245,15 @@ string readBMP180(){
   x2 = (-7357 * p) / pow(2,16);
   int p_abs = p + (x1 + x2 + 3791) / pow(2,4);
 
-  cout <<"Pressure: "<< p_abs <<endl;
+  //cout <<"Pressure: "<< p_abs <<endl;
   //double alt = 44330.0*(1.0-pow(((double)p_abs/101325.0),1.0/5.255));
   //cout<<alt<<endl;
   //cout<<ac[0]<<" "<<ac[1]<<" "<<ac[2]<<" "<<ac[3]<<" "<<ac[4]<<" "<<ac[5]<<" "<<endl;
   //cout<<b[0]<<" "<<b[1]<<" "<<endl;
   //cout<<m[0]<<" "<<m[1]<<" "<<m[2]<<endl;
-pressOut =intToStr(p_abs)+";"+doubleToStr(temp);
+  pressOut =intToStr(p_abs)+";"+doubleToStr(temp);
+  Telemetry_Data.pressure = p_abs;
+  Telemetry_Data.temperature = temp;
   close(fh);
   return pressOut;
 }
@@ -256,11 +278,12 @@ string readMPU(){
   accScaled[0]=acc[0]/16384.0;
   accScaled[1]=acc[1]/16384.0;
   accScaled[2]=acc[2]/16384.0;
-  g_roll = get_x_rotation(accScaled[0], accScaled[1], accScaled[2]);
+  Telemetry_Data.roll = get_x_rotation(accScaled[0], accScaled[1], accScaled[2]);
+  Telemetry_Data.pitch = get_y_rotation(accScaled[0], accScaled[1], accScaled[2]);
   //cout<<accScaled[0]<<" "<<accScaled[1]<<" "<<accScaled[2]<<endl;
   //printf("X: %f Y: %f\r", get_x_rotation(accScaled[0], accScaled[1], accScaled[2]), get_y_rotation(accScaled[0], accScaled[1], accScaled[2]));
   //accOut =doubleToStr(accScaled[0])+";"+doubleToStr(accScaled[1])+";"+doubleToStr(accScaled[2]);
-  accOut =doubleToStr(get_x_rotation(accScaled[0], accScaled[1], accScaled[2]))+";"+doubleToStr(get_y_rotation(accScaled[0], accScaled[1], accScaled[2]));
+  accOut =doubleToStr(Telemetry_Data.roll)+";"+doubleToStr(Telemetry_Data.pitch);
 
   close(fh);
   return accOut;
@@ -282,21 +305,34 @@ void sendCommand(float channel1, float channel2, float channel3, float channel4)
 
   data[0] = 0x20;
   write(fh,data,1);
+  usleep(5000);
   read(fh, data, 5);
 
   //printf("Channel 1,2,3,4 0x%02X 0x%02X 0x%02X 0x%02X\n", data[0] & 0xff,data[1] & 0xff,data[2] & 0xff,data[3] & 0xff);
-  printf("comm chan1 chan2 chan3 chan4 %u %u %u %u %u\n", data[0] & 0xff, data[1] & 0xff,data[2] & 0xff,data[3] & 0xff,data[4] & 0xff);
+  //printf("comm chan1 chan2 chan3 chan4 %u %u %u %u %u\n", data[0] & 0xff, data[1] & 0xff,data[2] & 0xff,data[3] & 0xff,data[4] & 0xff);
   close(fh);
 
 }
 
-int main(void){
-  struct sigaction sigIntHandler;
-  sigIntHandler.sa_handler = my_handler;
-  sigemptyset(&sigIntHandler.sa_mask);
-  sigIntHandler.sa_flags = 0;
-  sigaction(SIGINT, &sigIntHandler, NULL);
+void controlLoop(){
+  if (Control_Data.mode == 0) {
+    //cout << "Manual mode" << endl;
+    sendCommand(50, 0, 50, 0);
+  }
+  if (Control_Data.mode == 1) {
+    //cout << "Auto mode" << endl;
+    //cout << "roll angle: " << Telemetry_Data.roll << endl;
+    double p_roll = 0.3;
+    double desired_roll = 0.0;
+    int motor1 = -p_roll*(desired_roll - Telemetry_Data.roll) + 0;
+    int motor2 = p_roll*(desired_roll - Telemetry_Data.roll) + 0;
+    cout << "M1: "<<motor1 <<" M2: "<< motor2 << endl;
+    sendCommand(50, motor1, 50, motor2);
+  }
 
+}
+
+void socketLoop(){
   int s;
   sockaddr_in addrDest;
   sockaddr_in addrLocal;
@@ -309,7 +345,7 @@ int main(void){
   // create the socket
   if((s = socket(AF_INET, SOCK_DGRAM, 0))<0){ // UDP socket
     die("cannot create socket");
-  return 0;
+  //return 0;
   }
 
   fd_set readfds;
@@ -323,181 +359,20 @@ int main(void){
   addrLocal.sin_addr.s_addr = INADDR_ANY; // zero-init sin_addr to tell it to use all available adapters on the local host
 
   // associate this socket with local UDP port 9999
-  if(bind(s, (struct sockaddr*)&addrLocal, sizeof(addrLocal))<0) {
+  if(::bind(s, (struct sockaddr*)&addrLocal, sizeof(addrLocal))<0) {
     die("bind failed");
-  return 0;
+  //return 0;
   }
   // send "Hello world" from local port 9999 to the host at 1.2.3.4 on its port 8888
   addrDest.sin_family = AF_INET;
   addrDest.sin_port = htons(8888);
   addrDest.sin_addr.s_addr = inet_addr("192.168.1.7");
 
-  FILE *stream;
-  char *line = NULL;
-  size_t len = 512;
-  ssize_t rd;
-
-  stream = fopen("/dev/ttyAMA0", "r");
-  if (stream == NULL)
-    exit(EXIT_FAILURE);
-
-  while ((rd = getline(&line, &len, stream)) != -1) {
-    //printf("Retrieved line of length %zu :\n", rd);
-    //printf("%s", line);
-
-    string myText(line);
-    istringstream iss(myText);
-    string token;
-    int index = 0;
-    string msg[100];
-
-    getline(iss, token, '*');
-    char * checksumChar = new char [token.length()+1];
-    strcpy (checksumChar, token.substr(1,token.length()).c_str());
-
-    getline(iss, token, '*');
-    char * checksumNum = new char [token.length()+1];
-    strcpy (checksumNum, token.c_str());
-
-    myText = string(checksumChar);
-
-    //cout << myText <<endl;
-    iss.str(myText);
-    iss.clear();
-    while(getline(iss, token, ',')){
-      msg[index]=token;
-      //cout << msg[index] << endl;
-      //cout << index << endl;
-      index++;
-    }
-
-    //starts with RMC, ends with GLL
-    if (msg[0]=="GPGLL"){
-      //float lat = atof(msg[1].substr(0,2).c_str())+atof(msg[1].substr(2,msg[1].length()).c_str())/60.0f;
-      //float lon = atof(msg[3].substr(0,3).c_str())+atof(msg[3].substr(3,msg[3].length()).c_str())/60.0f;
-      //printf("GLL Lattitude: %12.9f %s\n",lat, msg[2].c_str());
-      //printf("GLL Longitude: %12.9f %s\n",lon, msg[4].c_str());
-      //cout << "Lattitude: " + msg[1].substr(0,2) + "°"+msg[1].substr(2,msg[1].length()) +"' " + msg[2]<< endl;
-      //cout << "Longitude: " + msg[3].substr(0,3) + "°"+msg[3].substr(3,msg[3].length()) +"' " + msg[4]<< endl;
-      //cout << "GLL time: " + msg[5].substr(0,2)+":"+msg[5].substr(2,2)+":" +msg[5].substr(4,8)+ " UTC"<< endl;
-      //printf("String: %s\nChecksum: 0x%02X\n", checksumChar, checksum(checksumChar));
-      checksum(checksumChar);
-      if (msg[6]!="A")
-        //cout<<"Data invalid."<<endl;
-        //cout << checksum(checksumChar) <<endl;
-        //cout << strtoul(checksumNum, NULL, 16) <<endl;
-        if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
-          //cout<<"Checksum error."<<endl;
-          break;
-    }
-
-    if (msg[0]=="GPGSV"){
-    }
-
-    if (msg[0]=="GPGSA"){
-            if (msg[1] == "M"){
-              //cout<<"Manual Mode."<<endl;
-            }
-            else if (msg[1] == "A"){
-              //cout<<"Automatic Mode."<<endl;
-            }
-            if (msg[2] == "1"){
-              //cout<<"Fix mode not available."<<endl;
-            }
-            else if (msg[2] == "2"){
-              //cout<<"2D Fix"<<endl;
-            }
-            else if (msg[2] == "3")
-            {
-              //cout<<"3D Fix."<<endl;
-            }
-
-            //cout << "PDOP: "+msg[15]<<endl;
-            //cout << "HDOP: "+msg[16]<<endl;
-            //cout << "VDOP: "+msg[17]<<endl;
-
-            GPS_Data.hdop = (float) atof(msg[16].c_str());
-            GPS_Data.vdop = (float) atof(msg[17].c_str());
-
-            if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
-              cout<<"Checksum error."<<endl;
-    }
-
-    if (msg[0]=="GPGGA"){
-      //cout << "GGA time: " + msg[1].substr(0,2)+":"+msg[1].substr(2,2)+":" +msg[1].substr(4,8)+ " UTC"<< endl;
-      //cout << msg[0];
-      GPS_Data.tim = atof(msg[1].c_str());
-
-      double lat = 0;
-      double lon = 0;
-
-      if(msg[2].length()>0){
-        lat = atof(msg[2].substr(0,2).c_str())+atof(msg[2].substr(2,msg[2].length()).c_str())/60.0;
-        lon = atof(msg[4].substr(0,3).c_str())+atof(msg[4].substr(3,msg[4].length()).c_str())/60.0;
-      }
-      if( msg[3] == "S"){
-        lat *= -1.0;
-      }
-
-      if( msg[5] == "W"){
-        lon *= -1.0;
-      }
-
-      GPS_Data.lat = lat;
-      GPS_Data.lon = lon;
-
-
-      if (msg[6] == "0"){
-        //cout<<"No Fix."<<endl;
-        GPS_Data.val = "0";
-      }
-      else if (msg[6] == "1"){
-        //cout<<"GPS Fix."<<endl;
-        GPS_Data.val = "1";
-      }
-      else if (msg[6] == "2"){
-        //cout<<"DGPS Fix."<<endl;
-      }
-      else if (msg[6] == "4"){
-        //cout<<"RTK, fixed integers"<<endl;
-      }
-      else if (msg[6] == "5"){
-        //cout<<"RTK, float integers"<<endl;
-      }
-
-      //cout << "Number of sattelites used: "+msg[7]<<endl;
-      //cout << "HDOP: "+msg[8]<<endl;
-      //cout << "MSL height: "+msg[9] + msg[10]<<endl;
-      //cout << "Geoid separation: "+msg[11]+msg[12]<<endl;
-
-      GPS_Data.alt = atof(msg[9].c_str());
-
-      if (msg[13] == ""){
-        //cout<<"DGPS not used"<<endl;
-      }
-      else {
-        //cout<<"DGPS data age: "+msg[13]<<endl;
-      }
-
-      //cout << checksum(checksumChar) <<endl;
-      //cout << strtoul(checksumNum, NULL, 16) <<endl;
-
-      if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
-              cout<<"Checksum error."<<endl;
-          }
-
-    if (msg[0]=="GPVTG"){
-    }
-
-    if (msg[0]=="GPRMC"){
-      float speed = atof(msg[7].c_str())*0.514444f;
-      //printf("Speed: %6.3f\n",speed);
-      GPS_Data.speed = speed;
-    }
+  //while(true){
 
     oldtime = newtime;
-    newtime = GPS_Data.tim;
-    if (newtime!=oldtime){
+    newtime = GPS_Data.time;
+    //if (newtime!=oldtime){
 
       fflush(stdout);
       string dataMPU = readMPU();
@@ -509,27 +384,29 @@ int main(void){
 
       data[0] = 0x21;
       write(fh,data,1);
+      usleep(5000);
       read(fh, data, 3);
       int volt = data[2]<<8;
       volt = volt+data[1];
       double voltage = (volt/1024.0)*5.2*(102.0/27.0);
-      printf("Data drive %u %u %u\n", data[0] & 0xff, data[1] & 0xff, data[2] & 0xff);
-      printf("Voltage: %5.2f, %4.2f per cell\n",  voltage, voltage/3.0);
+      Telemetry_Data.voltage = voltage;
+      //printf("Data drive %u %u %u\n", data[0] & 0xff, data[1] & 0xff, data[2] & 0xff);
+      //printf("Voltage: %5.2f, %4.2f per cell\n",  voltage, voltage/3.0);
 
       close(fh);
-
-      cout<<"Time: "<<GPS_Data.tim<<endl;
+      /*
+      cout<<"Time: "<<GPS_Data.time<<endl;
       cout<<"Lattitude: "<<GPS_Data.lat<<endl;
       cout<<"Longitude: "<<GPS_Data.lon<<endl;
       cout<<"Altitude: "<<GPS_Data.alt<<endl;
-
+      */
       strcpy(u_msg,(GPS_Data.val +";"+doubleToStr(GPS_Data.lat)+";"+doubleToStr(GPS_Data.lon)+";"+doubleToStr(GPS_Data.alt)+";"+dataMPU+";"+intToStr(volt)+";"+dataBMP180).c_str());
       //printf("Data: %s\n" , u_msg);
 
       if (sendto(s, u_msg, strlen(u_msg), 0, (struct sockaddr*)&addrDest, sizeof(addrDest)) == -1){
         die("sendto()");
       }
-     }
+     //}
 
     FD_ZERO(&readfds);
     FD_SET(s, &readfds);
@@ -560,24 +437,198 @@ int main(void){
         //cout << msg[index] << endl;
         index++;
       }
-	  if (msg[0] == "0") {
-		  cout << "Manual mode" << endl;
-		  sendCommand(atof(msg[1].c_str()), atof(msg[2].c_str()), atof(msg[3].c_str()), atof(msg[4].c_str()));
-	  }
-	  if (msg[0] == "1") {
-		  cout << "Auto mode" << endl;
-		  cout << "roll angle: " << g_roll << endl;
-		  double p_roll = 0.3;
-		  double desired_roll = 0.0;
-		  int motor1 = -p_roll*(desired_roll - g_roll) + atof(msg[5].c_str());
-		  int motor2 = p_roll*(desired_roll - g_roll) + atof(msg[5].c_str());
-		  cout << "M1: "<<motor1 <<" M2: "<< motor2 << endl;
-		  sendCommand(atof(msg[1].c_str()), motor1, atof(msg[3].c_str()), motor2);
-	  }
+      Control_Data.mode = stoi(msg[0]);
+
+
     }
+
+    close(s);
+}
+
+void serialLoop(){
+  FILE *stream;
+  char *line = NULL;
+  size_t len = 512;
+  ssize_t rd;
+  system("stty -F /dev/ttyAMA0 38400");
+  stream = fopen("/dev/ttyAMA0", "r");
+  if (stream == NULL)
+    exit(EXIT_FAILURE);
+    while ((rd = getline(&line, &len, stream)) != -1) {
+      //printf("Retrieved line of length %zu :\n", rd);
+      //printf("%s", line);
+
+      string myText(line);
+      istringstream iss(myText);
+      string token;
+      int index = 0;
+      string msg[100];
+
+      getline(iss, token, '*');
+      char * checksumChar = new char [token.length()+1];
+      strcpy (checksumChar, token.substr(1,token.length()).c_str());
+
+      getline(iss, token, '*');
+      char * checksumNum = new char [token.length()+1];
+      strcpy (checksumNum, token.c_str());
+
+      myText = string(checksumChar);
+
+      //cout << myText <<endl;
+      iss.str(myText);
+      iss.clear();
+      while(getline(iss, token, ',')){
+        msg[index]=token;
+        //cout << msg[index] << endl;
+        //cout << index << endl;
+        index++;
+      }
+
+      //starts with RMC, ends with GLL
+      if (msg[0]=="GPGLL"){
+        //float lat = atof(msg[1].substr(0,2).c_str())+atof(msg[1].substr(2,msg[1].length()).c_str())/60.0f;
+        //float lon = atof(msg[3].substr(0,3).c_str())+atof(msg[3].substr(3,msg[3].length()).c_str())/60.0f;
+        //printf("GLL Lattitude: %12.9f %s\n",lat, msg[2].c_str());
+        //printf("GLL Longitude: %12.9f %s\n",lon, msg[4].c_str());
+        //cout << "Lattitude: " + msg[1].substr(0,2) + "°"+msg[1].substr(2,msg[1].length()) +"' " + msg[2]<< endl;
+        //cout << "Longitude: " + msg[3].substr(0,3) + "°"+msg[3].substr(3,msg[3].length()) +"' " + msg[4]<< endl;
+        //cout << "GLL time: " + msg[5].substr(0,2)+":"+msg[5].substr(2,2)+":" +msg[5].substr(4,8)+ " UTC"<< endl;
+        //printf("String: %s\nChecksum: 0x%02X\n", checksumChar, checksum(checksumChar));
+        checksum(checksumChar);
+        if (msg[6]!="A")
+          //cout<<"Data invalid."<<endl;
+          //cout << checksum(checksumChar) <<endl;
+          //cout << strtoul(checksumNum, NULL, 16) <<endl;
+          if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
+            //cout<<"Checksum error."<<endl;
+            break;
+      }
+
+      if (msg[0]=="GPGSV"){
+      }
+
+      if (msg[0]=="GPGSA"){
+              if (msg[1] == "M"){
+                //cout<<"Manual Mode."<<endl;
+              }
+              else if (msg[1] == "A"){
+                //cout<<"Automatic Mode."<<endl;
+              }
+              if (msg[2] == "1"){
+                //cout<<"Fix mode not available."<<endl;
+              }
+              else if (msg[2] == "2"){
+                //cout<<"2D Fix"<<endl;
+              }
+              else if (msg[2] == "3")
+              {
+                //cout<<"3D Fix."<<endl;
+              }
+
+              //cout << "PDOP: "+msg[15]<<endl;
+              //cout << "HDOP: "+msg[16]<<endl;
+              //cout << "VDOP: "+msg[17]<<endl;
+
+              GPS_Data.hdop = (float) atof(msg[16].c_str());
+              GPS_Data.vdop = (float) atof(msg[17].c_str());
+
+              if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
+                cout<<"Checksum error."<<endl;
+      }
+
+      if (msg[0]=="GPGGA"){
+        //cout << "GGA time: " + msg[1].substr(0,2)+":"+msg[1].substr(2,2)+":" +msg[1].substr(4,8)+ " UTC"<< endl;
+        //cout << msg[0];
+        GPS_Data.time = atof(msg[1].c_str());
+
+        double lat = 0;
+        double lon = 0;
+
+        if(msg[2].length()>0){
+          lat = atof(msg[2].substr(0,2).c_str())+atof(msg[2].substr(2,msg[2].length()).c_str())/60.0;
+          lon = atof(msg[4].substr(0,3).c_str())+atof(msg[4].substr(3,msg[4].length()).c_str())/60.0;
+        }
+        if( msg[3] == "S"){
+          lat *= -1.0;
+        }
+
+        if( msg[5] == "W"){
+          lon *= -1.0;
+        }
+
+        GPS_Data.lat = lat;
+        GPS_Data.lon = lon;
+
+
+        if (msg[6] == "0"){
+          //cout<<"No Fix."<<endl;
+          GPS_Data.val = "0";
+        }
+        else if (msg[6] == "1"){
+          //cout<<"GPS Fix."<<endl;
+          GPS_Data.val = "1";
+        }
+        else if (msg[6] == "2"){
+          //cout<<"DGPS Fix."<<endl;
+        }
+        else if (msg[6] == "4"){
+          //cout<<"RTK, fixed integers"<<endl;
+        }
+        else if (msg[6] == "5"){
+          //cout<<"RTK, float integers"<<endl;
+        }
+
+        //cout << "Number of sattelites used: "+msg[7]<<endl;
+        //cout << "HDOP: "+msg[8]<<endl;
+        //cout << "MSL height: "+msg[9] + msg[10]<<endl;
+        //cout << "Geoid separation: "+msg[11]+msg[12]<<endl;
+
+        GPS_Data.alt = atof(msg[9].c_str());
+
+        if (msg[13] == ""){
+          //cout<<"DGPS not used"<<endl;
+        }
+        else {
+          //cout<<"DGPS data age: "+msg[13]<<endl;
+        }
+
+        //cout << checksum(checksumChar) <<endl;
+        //cout << strtoul(checksumNum, NULL, 16) <<endl;
+
+        if (strtoul(checksumNum, NULL, 16)!=checksum(checksumChar))
+                cout<<"Checksum error."<<endl;
+            }
+
+      if (msg[0]=="GPVTG"){
+      }
+
+      if (msg[0]=="GPRMC"){
+        float speed = atof(msg[7].c_str())*0.514444f;
+        //printf("Speed: %6.3f\n",speed);
+        GPS_Data.speed = speed;
+      }
+    }
+}
+int main(void){
+
+  timer_start(controlLoop,20);
+  struct sigaction sigIntHandler;
+  sigIntHandler.sa_handler = my_handler;
+  sigemptyset(&sigIntHandler.sa_mask);
+  sigIntHandler.sa_flags = 0;
+  sigaction(SIGINT, &sigIntHandler, NULL);
+
+  timer_start(socketLoop,20);
+
+
+  thread serialThread(serialLoop);
+  serialThread.detach();
+  while(true){
+
+
   }
-  close(s);
-  free(line);
-  fclose(stream);
+
+  //free(line);
+  //fclose(stream);
   exit(EXIT_SUCCESS);
 }
