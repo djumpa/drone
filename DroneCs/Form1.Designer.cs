@@ -51,10 +51,18 @@
             this.sendTimer = new System.Windows.Forms.Timer(this.components);
             this.label_Acc = new System.Windows.Forms.Label();
             this.label_telemetry = new System.Windows.Forms.Label();
+            this.label3 = new System.Windows.Forms.Label();
+            this.label9 = new System.Windows.Forms.Label();
+            this.label10 = new System.Windows.Forms.Label();
+            this.label11 = new System.Windows.Forms.Label();
+            this.trackBar5 = new System.Windows.Forms.TrackBar();
+            this.label12 = new System.Windows.Forms.Label();
+            this.label13 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar2)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar3)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar4)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBar5)).BeginInit();
             this.SuspendLayout();
             // 
             // button1
@@ -155,6 +163,7 @@
             this.trackBar1.TabIndex = 8;
             this.trackBar1.TickFrequency = 10;
             this.trackBar1.TickStyle = System.Windows.Forms.TickStyle.Both;
+            this.trackBar1.Value = 50;
             this.trackBar1.Scroll += new System.EventHandler(this.trackBar1_Scroll);
             // 
             // trackBar2
@@ -183,6 +192,7 @@
             this.trackBar3.TabIndex = 10;
             this.trackBar3.TickFrequency = 10;
             this.trackBar3.TickStyle = System.Windows.Forms.TickStyle.Both;
+            this.trackBar3.Value = 50;
             this.trackBar3.Scroll += new System.EventHandler(this.trackBar3_Scroll);
             // 
             // trackBar4
@@ -252,7 +262,6 @@
             // 
             // sendTimer
             // 
-            this.sendTimer.Enabled = true;
             this.sendTimer.Interval = 200;
             this.sendTimer.Tick += new System.EventHandler(this.sendTimer_Tick);
             // 
@@ -275,11 +284,93 @@
             this.label_telemetry.Text = "Telemetry";
             this.label_telemetry.Click += new System.EventHandler(this.telemetry_Click);
             // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(479, 338);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(44, 13);
+            this.label3.TabIndex = 19;
+            this.label3.Text = "Servo 1";
+            this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.label3.Click += new System.EventHandler(this.label3_Click_1);
+            // 
+            // label9
+            // 
+            this.label9.AutoSize = true;
+            this.label9.Location = new System.Drawing.Point(530, 338);
+            this.label9.Name = "label9";
+            this.label9.Size = new System.Drawing.Size(43, 13);
+            this.label9.TabIndex = 20;
+            this.label9.Text = "Motor 1";
+            this.label9.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // label10
+            // 
+            this.label10.AutoSize = true;
+            this.label10.Location = new System.Drawing.Point(581, 338);
+            this.label10.Name = "label10";
+            this.label10.Size = new System.Drawing.Size(44, 13);
+            this.label10.TabIndex = 21;
+            this.label10.Text = "Servo 2";
+            this.label10.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // label11
+            // 
+            this.label11.AutoSize = true;
+            this.label11.Location = new System.Drawing.Point(632, 338);
+            this.label11.Name = "label11";
+            this.label11.Size = new System.Drawing.Size(43, 13);
+            this.label11.TabIndex = 22;
+            this.label11.Text = "Motor 2";
+            this.label11.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // trackBar5
+            // 
+            this.trackBar5.LargeChange = 10;
+            this.trackBar5.Location = new System.Drawing.Point(752, 68);
+            this.trackBar5.Maximum = 100;
+            this.trackBar5.Name = "trackBar5";
+            this.trackBar5.Orientation = System.Windows.Forms.Orientation.Vertical;
+            this.trackBar5.Size = new System.Drawing.Size(45, 231);
+            this.trackBar5.SmallChange = 5;
+            this.trackBar5.TabIndex = 23;
+            this.trackBar5.TickFrequency = 10;
+            this.trackBar5.TickStyle = System.Windows.Forms.TickStyle.Both;
+            this.trackBar5.Scroll += new System.EventHandler(this.trackBar5_Scroll);
+            // 
+            // label12
+            // 
+            this.label12.AutoSize = true;
+            this.label12.Location = new System.Drawing.Point(749, 306);
+            this.label12.Name = "label12";
+            this.label12.Size = new System.Drawing.Size(41, 13);
+            this.label12.TabIndex = 24;
+            this.label12.Text = "label12";
+            this.label12.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // label13
+            // 
+            this.label13.AutoSize = true;
+            this.label13.Location = new System.Drawing.Point(749, 338);
+            this.label13.Name = "label13";
+            this.label13.Size = new System.Drawing.Size(60, 13);
+            this.label13.TabIndex = 25;
+            this.label13.Text = "Total thrust";
+            this.label13.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(730, 345);
+            this.ClientSize = new System.Drawing.Size(1015, 393);
+            this.Controls.Add(this.label13);
+            this.Controls.Add(this.label12);
+            this.Controls.Add(this.trackBar5);
+            this.Controls.Add(this.label11);
+            this.Controls.Add(this.label10);
+            this.Controls.Add(this.label9);
+            this.Controls.Add(this.label3);
             this.Controls.Add(this.label_telemetry);
             this.Controls.Add(this.label_Acc);
             this.Controls.Add(this.button3);
@@ -306,6 +397,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.trackBar2)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar3)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBar4)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBar5)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -335,6 +427,13 @@
         private System.Windows.Forms.Timer sendTimer;
         private System.Windows.Forms.Label label_Acc;
         private System.Windows.Forms.Label label_telemetry;
+        private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.Label label9;
+        private System.Windows.Forms.Label label10;
+        private System.Windows.Forms.Label label11;
+        private System.Windows.Forms.TrackBar trackBar5;
+        private System.Windows.Forms.Label label12;
+        private System.Windows.Forms.Label label13;
     }
 }
 

@@ -37,6 +37,7 @@ typedef struct
 GPS_Data_struct GPS_Data;
 float oldtime;
 float newtime;
+double g_roll;
 
 unsigned int checksum(char *s) {
   unsigned int c = 0;
@@ -242,7 +243,7 @@ string readMPU(){
   accScaled[0]=acc[0]/16384.0;
   accScaled[1]=acc[1]/16384.0;
   accScaled[2]=acc[2]/16384.0;
-
+  g_roll = get_x_rotation(accScaled[0], accScaled[1], accScaled[2]);
   //cout<<accScaled[0]<<" "<<accScaled[1]<<" "<<accScaled[2]<<endl;
   //printf("X: %f Y: %f\r", get_x_rotation(accScaled[0], accScaled[1], accScaled[2]), get_y_rotation(accScaled[0], accScaled[1], accScaled[2]));
   //accOut =doubleToStr(accScaled[0])+";"+doubleToStr(accScaled[1])+";"+doubleToStr(accScaled[2]);
@@ -328,7 +329,7 @@ int main(void){
     exit(EXIT_FAILURE);
 
   while ((rd = getline(&line, &len, stream)) != -1) {
-    //printf("Retrieved line of length %zu :\n", rf);
+    //printf("Retrieved line of length %zu :\n", rd);
     //printf("%s", line);
 
     string myText(line);
@@ -546,8 +547,20 @@ int main(void){
         //cout << msg[index] << endl;
         index++;
       }
-
-      sendCommand(atof(msg[1].c_str()),atof(msg[2].c_str()),atof(msg[3].c_str()),atof(msg[4].c_str()));
+	  if (msg[0] == "0") {
+		  cout << "Manual mode" << endl;
+		  sendCommand(atof(msg[1].c_str()), atof(msg[2].c_str()), atof(msg[3].c_str()), atof(msg[4].c_str()));
+	  }
+	  if (msg[0] == "1") {
+		  cout << "Auto mode" << endl;
+		  cout << "roll angle: " << g_roll << endl;
+		  double p_roll = 0.3;
+		  double desired_roll = 0.0;
+		  int motor1 = -p_roll*(desired_roll - g_roll) + atof(msg[5].c_str());
+		  int motor2 = p_roll*(desired_roll - g_roll) + atof(msg[5].c_str());
+		  cout << "M1: "<<motor1 <<" M2: "<< motor2 << endl;
+		  sendCommand(atof(msg[1].c_str()), motor1, atof(msg[3].c_str()), motor2);
+	  }
     }
   }
   close(s);

@@ -29,6 +29,7 @@ namespace DroneCs
             label6.Text = trackBar2.Value.ToString();
             label7.Text = trackBar3.Value.ToString();
             label8.Text = trackBar4.Value.ToString();
+            label12.Text = trackBar5.Value.ToString();
             if (auto)
                 button3.Text = "Auto";
             else
@@ -39,10 +40,11 @@ namespace DroneCs
         
         private void button1_Click(object sender, EventArgs e)
         {
-            
-            backgroundWorker1.RunWorkerAsync();
-            
-            
+            if(!backgroundWorker1.IsBusy)
+                backgroundWorker1.RunWorkerAsync();
+
+            sendTimer.Enabled = !sendTimer.Enabled;
+
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -181,18 +183,28 @@ namespace DroneCs
                 binAuto = "1";
             else
                 binAuto = "0";
-            UDPExample.m_auto = binAuto + ";" + trackBar1.Value.ToString() + ";" + trackBar2.Value.ToString() + ";" + trackBar3.Value.ToString() + ";" + trackBar4.Value.ToString() + "\n";
+            UDPExample.m_auto = binAuto + ";" + trackBar1.Value.ToString() + ";" + trackBar2.Value.ToString() + ";" + trackBar3.Value.ToString() + ";" + trackBar4.Value.ToString() + ";"  +trackBar5.Value.ToString() + "\n";
             UDPExample.SendData();
         }
 
         private void telemetry_Click(object sender, EventArgs e)
         {
 
-        }  
+        }
+
+        private void label3_Click_1(object sender, EventArgs e)
+        {
+
+        }
+
+        private void trackBar5_Scroll(object sender, EventArgs e)
+        {
+            label12.Text = trackBar5.Value.ToString();
+        }
     }
 
 
-public class UDPExample 
+    public class UDPExample 
     {
         public static string m_data;
         public static string m_auto;
