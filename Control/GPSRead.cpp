@@ -51,6 +51,7 @@ float oldtime;
 float newtime;
 double g_roll;
 
+
 unsigned int checksum(char *s) {
   unsigned int c = 0;
   while(*s)
