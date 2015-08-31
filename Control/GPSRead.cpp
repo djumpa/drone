@@ -13,6 +13,7 @@
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
 #include <cmath>
+#include "defs.h"
 
 #define BUFLEN 128  //Max length of buffer
 #define PORT 8888   //The port on which to listen for incoming data
@@ -23,7 +24,7 @@ using namespace std;
 
 typedef struct
 {
-  float tim;
+  float time;
   double lat;
   double lon;
   double alt;
@@ -34,6 +35,17 @@ typedef struct
   float vdop;
 } GPS_Data_struct;
 
+
+typedef struct
+{
+  float roll;
+  float yaw;
+  float pitch;
+  float pressure;
+  float temperature;
+} Telemetry_Data_struct;
+
+Telemetry_Data_struct Telemetry_Data;
 GPS_Data_struct GPS_Data;
 float oldtime;
 float newtime;
