@@ -1,8 +1,8 @@
 CXX = g++
-CFLAGS = -g -Wall
+CPPFLAGS = -g -Wall -std=c++0x -lpthread
 TARGET = GPSRead
-
+.DEFAULT_GOAL := all
 all: $(TARGET)
-	$(CXX) $(CFLAGS) -o $(TARGET) $(TARGET).cpp
-clean: 
+	$(CXX) $(CPPFLAGS) -o $(TARGET) $(TARGET).cpp
+clean:
 	$(RM) $(TARGET)
