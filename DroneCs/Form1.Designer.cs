@@ -262,7 +262,7 @@
             // 
             // sendTimer
             // 
-            this.sendTimer.Interval = 200;
+            this.sendTimer.Interval = 20;
             this.sendTimer.Tick += new System.EventHandler(this.sendTimer_Tick);
             // 
             // label_Acc

@@ -268,9 +268,9 @@ namespace DroneCs
                 //pripojime se na cil, kteremu chceme zaslat data
                 client.Connect("192.168.1.100", 9999);
                 //enkodujeme retezec a zasleme na cil
-                byte[] data = Encoding.ASCII.GetBytes(m_auto+" ");
+                byte[] data = Encoding.ASCII.GetBytes(m_auto + " ");
                 client.Send(data, data.Length);
-
+                Console.WriteLine("{0} : UDP vysilac vyslal data : {1}", DateTime.Now.ToString(), m_auto);
             }
             catch (SocketException ex)
             {

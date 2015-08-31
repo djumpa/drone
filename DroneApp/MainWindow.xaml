@@ -5,22 +5,28 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DroneApp"
         mc:Ignorable="d"
-        Title="DroneApp" Height="480" Width="640">
-    <Grid Margin="0,0,-8,12">
+        Title="DroneApp" Height="474.621" Width="1024.538">
+    <Grid Margin="0,0,-8,0">
         <Button x:Name="button_ping" Content="Ping" Margin="60,80,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="75" Click="button_ping_Click"/>
-        <Slider x:Name="slider_chan1" HorizontalAlignment="Left" Margin="365,55,0,0" VerticalAlignment="Top" Height="325" Width="25" Orientation="Vertical" Maximum="100" ValueChanged="slider_chan1_ValueChanged"/>
-        <Slider x:Name="slider_chan4" HorizontalAlignment="Left" Margin="485,55,0,0" VerticalAlignment="Top" Height="325" Width="25" Orientation="Vertical" Maximum="100" ValueChanged="slider_chan4_ValueChanged"/>
-        <Slider x:Name="slider_chan3" HorizontalAlignment="Left" Margin="445,55,0,0" VerticalAlignment="Top" Height="325" Width="25" Orientation="Vertical" Maximum="100" ValueChanged="slider_chan3_ValueChanged"/>
-        <Slider x:Name="slider_chan2" HorizontalAlignment="Left" Margin="405,55,0,0" VerticalAlignment="Top" Height="325" Width="25" Orientation="Vertical" Maximum="100" ValueChanged="slider_chan2_ValueChanged"/>
-        <Button x:Name="connect" Content="Connect" Margin="60,160,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="75"/>
-        <Label x:Name="telemetry" Content="Telemetry" HorizontalAlignment="Left" Margin="60,275,0,0" VerticalAlignment="Top"/>
-        <Label x:Name="label_chan1" Content="100" HorizontalAlignment="Left" Margin="361,401,0,0" VerticalAlignment="Top"/>
-        <Label x:Name="label_chan2" Content="100" HorizontalAlignment="Left" Margin="401,401,0,0" VerticalAlignment="Top"/>
-        <Label x:Name="telemetry_Copy2" HorizontalAlignment="Left" Margin="445,401,0,0" VerticalAlignment="Top"/>
-        <Label x:Name="label_chan3" Content="100" HorizontalAlignment="Left" Margin="441,401,0,0" VerticalAlignment="Top"/>
-        <Label x:Name="label_chan4" Content="100" HorizontalAlignment="Left" Margin="481,401,0,0" VerticalAlignment="Top"/>
+        <Slider x:Name="slider_chan1" HorizontalAlignment="Left" Margin="462,56,0,0" VerticalAlignment="Top" Height="325" Width="25" Orientation="Vertical" Maximum="100" ValueChanged="slider_chan1_ValueChanged"/>
+        <Slider x:Name="slider_chan4" HorizontalAlignment="Left" Margin="582,56,0,0" VerticalAlignment="Top" Height="325" Width="25" Orientation="Vertical" Maximum="100" ValueChanged="slider_chan4_ValueChanged"/>
+        <Slider x:Name="slider_chan3" HorizontalAlignment="Left" Margin="542,56,0,0" VerticalAlignment="Top" Height="325" Width="25" Orientation="Vertical" Maximum="100" ValueChanged="slider_chan3_ValueChanged"/>
+        <Slider x:Name="slider_chan2" HorizontalAlignment="Left" Margin="502,56,0,0" VerticalAlignment="Top" Height="325" Width="25" Orientation="Vertical" Maximum="100" ValueChanged="slider_chan2_ValueChanged"/>
+        <Button x:Name="connect" Content="Connect" Margin="60,160,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="75" Click="connect_Click"/>
+        <Label x:Name="telemetry" Content="Telemetry" HorizontalAlignment="Left" Margin="40,220,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="label_chan1" Content="100" HorizontalAlignment="Left" Margin="458,402,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="label_chan2" Content="100" HorizontalAlignment="Left" Margin="498,402,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="telemetry_Copy2" HorizontalAlignment="Left" Margin="542,402,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="label_chan3" Content="100" HorizontalAlignment="Left" Margin="538,402,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="label_chan4" Content="100" HorizontalAlignment="Left" Margin="578,402,0,0" VerticalAlignment="Top"/>
         <Label x:Name="label_ping" Content="Ping" HorizontalAlignment="Left" Margin="195,116,0,0" VerticalAlignment="Top"/>
-        <TextBox x:Name="textBox_ping" HorizontalAlignment="Left" Height="23" Margin="60,120,0,0" TextWrapping="Wrap" Text="10.10.1.20" VerticalAlignment="Top" Width="120"/>
-
+        <TextBox x:Name="textBox_ping" HorizontalAlignment="Left" Height="23" Margin="60,120,0,0" TextWrapping="Wrap" Text="192.168.1.100" VerticalAlignment="Top" Width="120"/>
+        <Button x:Name="mode" Content="Mode" Margin="498,11,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="75" Click="mode_Click"/>
+        <Label x:Name="gps" Content="GPS" Margin="311,220,0,0" VerticalAlignment="Top" HorizontalAlignment="Left"/>
+        <Label x:Name="mpu" Content="MPU" HorizontalAlignment="Left" Margin="195,220,0,0" VerticalAlignment="Top"/>
+        <Grid HorizontalAlignment="Left" Height="100" Margin="781,160,0,0" VerticalAlignment="Top" Width="100"/>
+        <Canvas Name="canGraph" Background="White"
+            Width="300" Height="200"
+                VerticalAlignment="Center" HorizontalAlignment="Center" Margin="652,120,73,124"/>
     </Grid>
 </Window>
