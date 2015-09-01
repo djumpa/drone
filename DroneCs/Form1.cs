@@ -25,6 +25,7 @@ namespace DroneCs
         {
             InitializeComponent();
             UDPex = new UDPExample();
+    
             label5.Text = trackBar1.Value.ToString();
             label6.Text = trackBar2.Value.ToString();
             label7.Text = trackBar3.Value.ToString();

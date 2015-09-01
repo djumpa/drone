@@ -48,6 +48,8 @@ namespace DroneApp
             
 
             UDPex = new UDPExample();
+            slider_chan1.Value = 50;
+            slider_chan3.Value = 50;
             label_chan1.Content = Math.Floor(slider_chan1.Value);
             label_chan2.Content = Math.Floor(slider_chan2.Value);
             label_chan3.Content = Math.Floor(slider_chan3.Value);

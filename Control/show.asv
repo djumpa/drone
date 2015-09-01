@@ -1,0 +1,2 @@
+run('C:\Users\Filip\Documents\Git\drone\Control\data.m')
+plot(roll);
