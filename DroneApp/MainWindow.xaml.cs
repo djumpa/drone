@@ -27,7 +27,13 @@ namespace DroneApp
     {
         bool auto=false;
         UDPExample UDPex;
+        DispatcherTimer sendTimer = new DispatcherTimer();
+        // Compose a string that consists of three lines.
+        
 
+        // Write the string to a file.
+        //System.IO.StreamWriter file = new System.IO.StreamWriter("data.m");
+        
         public MainWindow()
         {
             InitializeComponent();
@@ -35,34 +41,65 @@ namespace DroneApp
             dispatcherTimer.Tick += new EventHandler(dispatcherTimer_Tick);
             dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 100);
             dispatcherTimer.Start();
+
+            
+            sendTimer.Tick += new EventHandler(sendTimer_Tick);
+            sendTimer.Interval = new TimeSpan(0, 0, 0, 0, 100);
+            
+
             UDPex = new UDPExample();
             label_chan1.Content = Math.Floor(slider_chan1.Value);
             label_chan2.Content = Math.Floor(slider_chan2.Value);
             label_chan3.Content = Math.Floor(slider_chan3.Value);
             label_chan4.Content = Math.Floor(slider_chan4.Value);
-
+            label_thrust.Content = Math.Floor(slider_thrust.Value);
             if (auto)
                 mode.Content = "Auto";
             else
                 mode.Content = "Manual";
 
-            const double margin = 10;
-            double xmin = margin;
-            double xmax = canGraph.Width - margin;
-            double ymin = margin;
-            double ymax = canGraph.Height - margin;
-            const double step = 10;
+            double wxmin = -10;
+            double wxmax = 110;
+            double wymin = -1;
+            double wymax = 11;
+            const double xstep = 10;
+            const double ystep = 1;
+
+            const double dmargin = 10;
+            double dxmin = dmargin;
+            double dxmax = canGraph.Width - dmargin;
+            double dymin = dmargin;
+            double dymax = canGraph.Height - dmargin;
+
+            // Prepare the transformation matrices.
+            PrepareTransformations(
+                wxmin, wxmax, wymin, wymax,
+                dxmin, dxmax, dymax, dymin);
+
+            // Get the tic mark lengths.
+            Point p0 = DtoW(new Point(0, 0));
+            Point p1 = DtoW(new Point(5, 5));
+            double xtic = p1.X - p0.X;
+            double ytic = p1.Y - p0.Y;
 
             // Make the X axis.
             GeometryGroup xaxis_geom = new GeometryGroup();
-            xaxis_geom.Children.Add(new LineGeometry(
-                new Point(0, ymax), new Point(canGraph.Width, ymax)));
-            for (double x = xmin + step;
-                x <= canGraph.Width - step; x += step)
+            p0 = new Point(wxmin, 0);
+            p1 = new Point(wxmax, 0);
+            xaxis_geom.Children.Add(new LineGeometry(WtoD(p0), WtoD(p1)));
+
+            for (double x = xstep; x <= wxmax - xstep; x += xstep)
             {
-                xaxis_geom.Children.Add(new LineGeometry(
-                    new Point(x, ymax - margin / 2),
-                    new Point(x, ymax + margin / 2)));
+                // Add the tic mark.
+                Point tic0 = WtoD(new Point(x, -ytic));
+                Point tic1 = WtoD(new Point(x, ytic));
+                xaxis_geom.Children.Add(new LineGeometry(tic0, tic1));
+
+                // Label the tic mark's X coordinate.
+                DrawText(canGraph, x.ToString(),
+                    new Point(tic0.X, tic0.Y + 5), 12,
+                    HorizontalAlignment.Center,
+                    VerticalAlignment.Top);
             }
 
             Path xaxis_path = new Path();
@@ -72,15 +109,24 @@ namespace DroneApp
 
             canGraph.Children.Add(xaxis_path);
 
-            // Make the Y ayis.
+            // Make the Y axis.
             GeometryGroup yaxis_geom = new GeometryGroup();
-            yaxis_geom.Children.Add(new LineGeometry(
-                new Point(xmin, 0), new Point(xmin, canGraph.Height)));
-            for (double y = step; y <= canGraph.Height - step; y += step)
+            p0 = new Point(0, wymin);
+            p1 = new Point(0, wymax);
+            xaxis_geom.Children.Add(new LineGeometry(WtoD(p0), WtoD(p1)));
+
+            for (double y = ystep; y <= wymax - ystep; y += ystep)
             {
-                yaxis_geom.Children.Add(new LineGeometry(
-                    new Point(xmin - margin / 2, y),
-                    new Point(xmin + margin / 2, y)));
+                // Add the tic mark.
+                Point tic0 = WtoD(new Point(-xtic, y));
+                Point tic1 = WtoD(new Point(xtic, y));
+                xaxis_geom.Children.Add(new LineGeometry(tic0, tic1));
+
+                // Label the tic mark's Y coordinate.
+                DrawText(canGraph, y.ToString(),
+                    new Point(tic0.X - 10, tic0.Y), 12,
+                    HorizontalAlignment.Center,
+                    VerticalAlignment.Center);
             }
 
             Path yaxis_path = new Path();
@@ -95,15 +141,16 @@ namespace DroneApp
             Random rand = new Random();
             for (int data_set = 0; data_set < 3; data_set++)
             {
-                int last_y = rand.Next((int)ymin, (int)ymax);
+                double last_y = rand.Next(3, 7);
 
                 PointCollection points = new PointCollection();
-                for (double x = xmin; x <= xmax; x += step)
+                for (double x = 0; x <= 100; x += 10)
                 {
-                    last_y = rand.Next(last_y - 10, last_y + 10);
-                    if (last_y < ymin) last_y = (int)ymin;
-                    if (last_y > ymax) last_y = (int)ymax;
-                    points.Add(new Point(x, last_y));
+                    last_y += rand.Next(-10, 10) / 10.0;
+                    if (last_y < 0) last_y = 0;
+                    if (last_y > 10) last_y = 10;
+                    Point p = new Point(x, last_y);
+                    points.Add(WtoD(p));
                 }
 
                 Polyline polyline = new Polyline();
@@ -113,8 +160,75 @@ namespace DroneApp
 
                 canGraph.Children.Add(polyline);
             }
+
+            // Make a title
+            Point title_location = WtoD(new Point(50, 10));
+            DrawText(canGraph, "Amazing Data", title_location, 20,
+                HorizontalAlignment.Center,
+                VerticalAlignment.Top);
+        
+        }
+        // Prepare values for perform transformations.
+        private Matrix WtoDMatrix, DtoWMatrix;
+        private void PrepareTransformations(
+            double wxmin, double wxmax, double wymin, double wymax,
+            double dxmin, double dxmax, double dymin, double dymax)
+        {
+            // Make WtoD.
+            WtoDMatrix = Matrix.Identity;
+            WtoDMatrix.Translate(-wxmin, -wymin);
+
+            double xscale = (dxmax - dxmin) / (wxmax - wxmin);
+            double yscale = (dymax - dymin) / (wymax - wymin);
+            WtoDMatrix.Scale(xscale, yscale);
+
+            WtoDMatrix.Translate(dxmin, dymin);
+
+            // Make DtoW.
+            DtoWMatrix = WtoDMatrix;
+            DtoWMatrix.Invert();
         }
 
+        // Transform a point from world to device coordinates.
+        private Point WtoD(Point point)
+        {
+            return WtoDMatrix.Transform(point);
+        }
+
+        // Transform a point from device to world coordinates.
+        private Point DtoW(Point point)
+        {
+            return DtoWMatrix.Transform(point);
+        }
+
+        // Position a label at the indicated point.
+        private void DrawText(Canvas can, string text, Point location,
+            double font_size,
+            HorizontalAlignment halign, VerticalAlignment valign)
+        {
+            // Make the label.
+            Label label = new Label();
+            label.Content = text;
+            label.FontSize = font_size;
+            can.Children.Add(label);
+
+            // Position the label.
+            label.Measure(new Size(double.MaxValue, double.MaxValue));
+
+            double x = location.X;
+            if (halign == HorizontalAlignment.Center)
+                x -= label.DesiredSize.Width / 2;
+            else if (halign == HorizontalAlignment.Right)
+                x -= label.DesiredSize.Width;
+            Canvas.SetLeft(label, x);
+
+            double y = location.Y;
+            if (valign == VerticalAlignment.Center)
+                y -= label.DesiredSize.Height / 2;
+            else if (valign == VerticalAlignment.Bottom)
+                y -= label.DesiredSize.Height;
+            Canvas.SetTop(label, y);
+        }
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             
@@ -136,6 +250,18 @@ namespace DroneApp
 
 
 
+
+        }
+
+        private void sendTimer_Tick(object sender, EventArgs e)
+        {
+            string binAuto;
+            if (auto)
+                binAuto = "1";
+            else
+                binAuto = "0";
+            UDPExample.m_auto = binAuto + ";" + slider_chan1.Value.ToString() + ";" + slider_chan2.Value.ToString() + ";" + slider_chan3.Value.ToString() + ";" + slider_chan4.Value.ToString() + ";" + slider_thrust.Value.ToString() + "\n";
+            UDPExample.SendData();
 
         }
 
@@ -188,6 +314,7 @@ namespace DroneApp
             Thread recvThread = new Thread(new ThreadStart(UDPExample.Run));
             recvThread.IsBackground = true;
             recvThread.Start();
+            sendTimer.Start();
         }
 
         private void mode_Click(object sender, RoutedEventArgs e)
@@ -201,6 +328,19 @@ namespace DroneApp
             slider_chan2.IsEnabled = !auto;
             slider_chan3.IsEnabled = !auto;
             slider_chan4.IsEnabled = !auto;
+            slider_thrust.IsEnabled = auto;
+        }
+
+        private void button_write_Click(object sender, RoutedEventArgs e)
+        {
+            //file.WriteLine(lines);
+
+            //file.Close();
+        }
+
+        private void slider_thrust_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            label_thrust.Content = Math.Floor(slider_thrust.Value);
         }
     }
 
