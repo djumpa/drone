@@ -16,6 +16,8 @@
 #include <chrono>
 #include <thread>
 #include <functional>
+#include <vector>
+#include <fstream>
 #include "defs.h"
 
 #define BUFLEN 128  //Max length of buffer
@@ -24,6 +26,13 @@
 #define MPU6050 0x68
 #define BMP180 0x77
 using namespace std;
+
+typedef struct
+{
+  float x;
+  float y;
+  float z;
+} Vector3;
 
 typedef struct
 {
@@ -52,7 +61,11 @@ typedef struct
 typedef struct
 {
   int mode;
-
+  int chan1;
+  int chan2;
+  int chan3;
+  int chan4;
+  int thrust;
 } Control_Data_struct;
 
 Control_Data_struct Control_Data;
@@ -61,6 +74,13 @@ GPS_Data_struct GPS_Data;
 float oldtime;
 float newtime;
 double g_roll;
+float rollGyro;
+float pitchGyro;
+float yawGyro;
+vector<float> angles;
+vector<float> angle_avg;
+vector<Control_Data_struct> ControlVec;
+vector<Vector3> angle;
 
 void timer_start(std::function<void(void)> func, unsigned int interval)
 {
@@ -73,6 +93,72 @@ void timer_start(std::function<void(void)> func, unsigned int interval)
 	}).detach();
 }
 
+void writeToMFile(){
+
+
+
+  string log_file ="data.m";
+  ofstream out(log_file);
+  if (out.fail()) {
+		cerr << "The file " << log_file << " cannot be opened." << endl;
+		exit(EXIT_FAILURE);
+	}
+
+  vector<Control_Data_struct>::iterator ctrl_it;
+
+  out << "roll = [ ";
+  for(vector<float>::const_iterator i = angles.begin(); i != angles.end(); ++i) {
+    out << *i << " ";
+  }
+  out << "];\n";
+  out << "roll_avg = [ ";
+  for(vector<float>::const_iterator i = angle_avg.begin(); i != angle_avg.end(); ++i) {
+    out << *i << " ";
+  }
+  out << "];\n";
+
+
+	out << "chan1 = [ ";
+	ctrl_it = ControlVec.begin();
+	while (ctrl_it != ControlVec.end()) {
+		out << ctrl_it->chan1 << " ";
+
+		ctrl_it ++;
+	}
+	out << "];\n";
+
+  out << "chan2 = [ ";
+	ctrl_it = ControlVec.begin();
+	while (ctrl_it != ControlVec.end()) {
+		out << ctrl_it->chan2 << " ";
+
+		ctrl_it ++;
+	}
+	out << "];\n";
+
+  out << "chan3 = [ ";
+	ctrl_it = ControlVec.begin();
+	while (ctrl_it != ControlVec.end()) {
+		out << ctrl_it->chan3 << " ";
+
+		ctrl_it ++;
+	}
+	out << "];\n";
+
+  out << "chan4 = [ ";
+	ctrl_it = ControlVec.begin();
+	while (ctrl_it != ControlVec.end()) {
+		out << ctrl_it->chan4 << " ";
+
+		ctrl_it ++;
+	}
+	out << "];\n";
+
+	out.close();
+
+	cout << "File with results stored in: " << log_file << endl;
+
+}
 unsigned int checksum(char *s) {
   unsigned int c = 0;
   while(*s)
@@ -264,7 +350,13 @@ string readMPU(){
   int fh;
   uint8_t data[6];
   int acc[3];
+  int gyro[3];
+  int gyroOffset[3];
+
   double accScaled[3];
+  float gyroScaled[3];
+  double pitch;
+  double roll;
 
   init_i2c_device("/dev/i2c-1", MPU6050, fh);
   data[0] = 0x6b;
@@ -275,11 +367,45 @@ string readMPU(){
   acc[1]=i2c_read_word(fh, 0x3D);
   acc[2]=i2c_read_word(fh, 0x3F);
 
+  //experimental values
+  gyroOffset[0]=-1543;
+  gyroOffset[1]=257;
+  gyroOffset[2]=-1;
+
+  gyro[0]=i2c_read_word(fh, 0x43) - gyroOffset[0];
+  gyro[1]=i2c_read_word(fh, 0x45) - gyroOffset[1];
+  gyro[2]=i2c_read_word(fh, 0x47) - gyroOffset[2];
+
   accScaled[0]=acc[0]/16384.0;
   accScaled[1]=acc[1]/16384.0;
   accScaled[2]=acc[2]/16384.0;
-  Telemetry_Data.roll = get_x_rotation(accScaled[0], accScaled[1], accScaled[2]);
-  Telemetry_Data.pitch = get_y_rotation(accScaled[0], accScaled[1], accScaled[2]);
+
+  gyroScaled[0]=gyro[0]/131.0;
+  gyroScaled[1]=gyro[1]/131.0;
+  gyroScaled[2]=gyro[2]/131.0;
+
+  //cout << acc[0] << ", "<< acc[1] << ", "<< acc[2] << endl;
+  //cout << gyro[0] << ", "<< gyro[1] << ", "<< gyro[2] << endl;
+
+  roll = get_x_rotation(accScaled[0], accScaled[1], accScaled[2]);
+  pitch = get_y_rotation(accScaled[0], accScaled[1], accScaled[2]);
+  rollGyro+=gyroScaled[1]*0.02f;
+  pitchGyro+=gyroScaled[0]*0.02f;
+  yawGyro+=gyroScaled[2]*0.02f;
+  //cout<<rollGyro<<endl;
+  //cout << gyroScaled[0] << ", "<< gyroScaled[1] << ", "<< gyroScaled[2] << ", "<< roll << ", "<< pitch << endl;
+  int n = 25;
+  float avg = 0.0f;
+  vector<float> tmp(angles.end() - min((int)angles.size(), n), angles.end());
+  for (size_t i = 0; i < tmp.size(); i++){
+     avg += tmp[i];
+  }
+  avg = avg/float(n);
+  angles.push_back((float)roll);
+  angle_avg.push_back(avg);
+
+  Telemetry_Data.pitch = pitch;
+  Telemetry_Data.roll = avg;
   //cout<<accScaled[0]<<" "<<accScaled[1]<<" "<<accScaled[2]<<endl;
   //printf("X: %f Y: %f\r", get_x_rotation(accScaled[0], accScaled[1], accScaled[2]), get_y_rotation(accScaled[0], accScaled[1], accScaled[2]));
   //accOut =doubleToStr(accScaled[0])+";"+doubleToStr(accScaled[1])+";"+doubleToStr(accScaled[2]);
@@ -315,20 +441,28 @@ void sendCommand(float channel1, float channel2, float channel3, float channel4)
 }
 
 void controlLoop(){
+    readMPU();
+
+
   if (Control_Data.mode == 0) {
     //cout << "Manual mode" << endl;
-    sendCommand(50, 0, 50, 0);
+    sendCommand((float)Control_Data.chan1, (float)Control_Data.chan2, (float)Control_Data.chan3, (float)Control_Data.chan4);
   }
   if (Control_Data.mode == 1) {
     //cout << "Auto mode" << endl;
     //cout << "roll angle: " << Telemetry_Data.roll << endl;
-    double p_roll = 0.3;
+    double p_roll = 0.45;
     double desired_roll = 0.0;
-    int motor1 = -p_roll*(desired_roll - Telemetry_Data.roll) + 0;
-    int motor2 = p_roll*(desired_roll - Telemetry_Data.roll) + 0;
+    int motor1 = -p_roll*(desired_roll - Telemetry_Data.roll) + Control_Data.thrust;
+    int motor2 = p_roll*(desired_roll - Telemetry_Data.roll) + Control_Data.thrust;
+    Control_Data.chan2 = motor1;
+    Control_Data.chan4 = motor2;
     cout << "M1: "<<motor1 <<" M2: "<< motor2 << endl;
-    sendCommand(50, motor1, 50, motor2);
+    sendCommand((float)Control_Data.chan1, (float)Control_Data.chan2, (float)Control_Data.chan3, (float)Control_Data.chan4);
+
+
   }
+  ControlVec.push_back(Control_Data);
 
 }
 
@@ -375,7 +509,7 @@ void socketLoop(){
     //if (newtime!=oldtime){
 
       fflush(stdout);
-      string dataMPU = readMPU();
+      //string dataMPU;// = readMPU();
       string dataBMP180 = readBMP180();
 
       int fh;
@@ -400,7 +534,7 @@ void socketLoop(){
       cout<<"Longitude: "<<GPS_Data.lon<<endl;
       cout<<"Altitude: "<<GPS_Data.alt<<endl;
       */
-      strcpy(u_msg,(GPS_Data.val +";"+doubleToStr(GPS_Data.lat)+";"+doubleToStr(GPS_Data.lon)+";"+doubleToStr(GPS_Data.alt)+";"+dataMPU+";"+intToStr(volt)+";"+dataBMP180).c_str());
+      strcpy(u_msg,(GPS_Data.val +";"+doubleToStr(GPS_Data.lat)+";"+doubleToStr(GPS_Data.lon)+";"+doubleToStr(GPS_Data.alt)+";"+doubleToStr(Telemetry_Data.roll)+";"+doubleToStr(Telemetry_Data.pitch)+";"+intToStr(volt)+";"+dataBMP180).c_str());
       //printf("Data: %s\n" , u_msg);
 
       if (sendto(s, u_msg, strlen(u_msg), 0, (struct sockaddr*)&addrDest, sizeof(addrDest)) == -1){
@@ -439,7 +573,16 @@ void socketLoop(){
       }
       Control_Data.mode = stoi(msg[0]);
 
+      if (Control_Data.mode == 0) {
+        //cout << "Manual mode" << endl;
+        Control_Data.chan2 = stoi(msg[2]);
+        Control_Data.chan4 = stoi(msg[4]);
+      }
+      Control_Data.chan1 = stoi(msg[1]);
 
+      Control_Data.chan3 = stoi(msg[3]);
+
+      Control_Data.thrust = stoi(msg[5]);
     }
 
     close(s);
@@ -610,6 +753,8 @@ void serialLoop(){
     }
 }
 int main(void){
+  Control_Data.chan1 = 50.0f;
+  Control_Data.chan3 = 50.0f;
 
   timer_start(controlLoop,20);
   struct sigaction sigIntHandler;
@@ -623,11 +768,12 @@ int main(void){
 
   thread serialThread(serialLoop);
   serialThread.detach();
-  while(true){
 
 
-  }
-
+    sleep(20);
+    sendCommand(50.0f,0.0f,50.0f,0.0f);
+  writeToMFile();
+  cout<<"Exiting..."<<endl;
   //free(line);
   //fclose(stream);
   exit(EXIT_SUCCESS);
