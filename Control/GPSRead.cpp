@@ -1,4 +1,6 @@
 
+#define _USE_MATH_DEFINES
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
@@ -18,6 +20,7 @@
 #include <functional>
 #include <vector>
 #include <fstream>
+#include <sys/time.h>
 #include "defs.h"
 
 #define BUFLEN 128  //Max length of buffer
@@ -25,6 +28,7 @@
 #define DRIVE 0x08
 #define MPU6050 0x68
 #define BMP180 0x77
+#define HMC5883L 0x1E
 using namespace std;
 
 typedef struct
@@ -50,9 +54,9 @@ typedef struct
 
 typedef struct
 {
-  double roll;
-  double yaw;
-  double pitch;
+  float roll;
+  float yaw;
+  float pitch;
   float pressure;
   float temperature;
   float voltage;
@@ -73,6 +77,9 @@ Telemetry_Data_struct Telemetry_Data;
 GPS_Data_struct GPS_Data;
 float oldtime;
 float newtime;
+
+long oldstamp;
+long newstamp;
 double g_roll;
 float rollGyro;
 float pitchGyro;
@@ -80,7 +87,7 @@ float yawGyro;
 vector<float> angles;
 vector<float> angle_avg;
 vector<Control_Data_struct> ControlVec;
-vector<Vector3> angle;
+vector<Vector3> gyroAngle;
 
 void timer_start(std::function<void(void)> func, unsigned int interval)
 {
@@ -105,6 +112,7 @@ void writeToMFile(){
 	}
 
   vector<Control_Data_struct>::iterator ctrl_it;
+  vector<Vector3>::iterator vec3_it;
 
   out << "roll = [ ";
   for(vector<float>::const_iterator i = angles.begin(); i != angles.end(); ++i) {
@@ -151,6 +159,33 @@ void writeToMFile(){
 		out << ctrl_it->chan4 << " ";
 
 		ctrl_it ++;
+	}
+	out << "];\n";
+
+  out << "angle1 = [ ";
+	vec3_it = gyroAngle.begin();
+	while (vec3_it != gyroAngle.end()) {
+		out << vec3_it->x << " ";
+
+		vec3_it ++;
+	}
+	out << "];\n";
+
+  out << "angle2 = [ ";
+	vec3_it = gyroAngle.begin();
+	while (vec3_it != gyroAngle.end()) {
+		out << vec3_it->y << " ";
+
+		vec3_it ++;
+	}
+	out << "];\n";
+
+  out << "angle3 = [ ";
+	vec3_it = gyroAngle.begin();
+	while (vec3_it != gyroAngle.end()) {
+		out << vec3_it->z << " ";
+
+		vec3_it ++;
 	}
 	out << "];\n";
 
@@ -372,9 +407,12 @@ string readMPU(){
   gyroOffset[1]=257;
   gyroOffset[2]=-1;
 
+
   gyro[0]=i2c_read_word(fh, 0x43) - gyroOffset[0];
   gyro[1]=i2c_read_word(fh, 0x45) - gyroOffset[1];
   gyro[2]=i2c_read_word(fh, 0x47) - gyroOffset[2];
+
+
 
   accScaled[0]=acc[0]/16384.0;
   accScaled[1]=acc[1]/16384.0;
@@ -384,14 +422,38 @@ string readMPU(){
   gyroScaled[1]=gyro[1]/131.0;
   gyroScaled[2]=gyro[2]/131.0;
 
+
   //cout << acc[0] << ", "<< acc[1] << ", "<< acc[2] << endl;
   //cout << gyro[0] << ", "<< gyro[1] << ", "<< gyro[2] << endl;
 
   roll = get_x_rotation(accScaled[0], accScaled[1], accScaled[2]);
   pitch = get_y_rotation(accScaled[0], accScaled[1], accScaled[2]);
-  rollGyro+=gyroScaled[1]*0.02f;
-  pitchGyro+=gyroScaled[0]*0.02f;
-  yawGyro+=gyroScaled[2]*0.02f;
+
+
+  timeval time;
+  gettimeofday(&time, NULL);
+
+  oldstamp = newstamp;
+  newstamp = (time.tv_sec * 1000) + (time.tv_usec / 1000);
+  float deltaTime = abs(oldstamp - newstamp)/1000.0f;
+
+
+  //cout<<millis<<endl;
+
+  rollGyro+=gyroScaled[0]*deltaTime;
+  pitchGyro+=gyroScaled[1]*deltaTime;
+  yawGyro+=gyroScaled[2]*deltaTime;
+
+  float compConstant = 0.98f;
+  rollGyro = rollGyro * compConstant - roll * (1-compConstant);
+  pitchGyro = pitchGyro * compConstant - pitch * (1-compConstant);
+
+
+  Telemetry_Data.pitch = pitchGyro;
+  Telemetry_Data.roll = rollGyro;
+
+  Vector3 gyrotmp ={Telemetry_Data.roll,Telemetry_Data.pitch,Telemetry_Data.yaw};
+  gyroAngle.push_back(gyrotmp);
   //cout<<rollGyro<<endl;
   //cout << gyroScaled[0] << ", "<< gyroScaled[1] << ", "<< gyroScaled[2] << ", "<< roll << ", "<< pitch << endl;
   int n = 25;
@@ -402,10 +464,9 @@ string readMPU(){
   }
   avg = avg/float(n);
   angles.push_back((float)roll);
-  angle_avg.push_back(avg);
+  angle_avg.push_back((float)pitch);
 
-  Telemetry_Data.pitch = pitch;
-  Telemetry_Data.roll = avg;
+
   //cout<<accScaled[0]<<" "<<accScaled[1]<<" "<<accScaled[2]<<endl;
   //printf("X: %f Y: %f\r", get_x_rotation(accScaled[0], accScaled[1], accScaled[2]), get_y_rotation(accScaled[0], accScaled[1], accScaled[2]));
   //accOut =doubleToStr(accScaled[0])+";"+doubleToStr(accScaled[1])+";"+doubleToStr(accScaled[2]);
@@ -413,6 +474,68 @@ string readMPU(){
 
   close(fh);
   return accOut;
+
+}
+
+void initHMC5883L(){
+  int fh;
+  uint8_t data[6];
+
+  init_i2c_device("/dev/i2c-1", HMC5883L, fh);
+
+  data[0] = 0x00;
+  data[1] = 0x70;
+  write(fh,data,2);
+
+  data[0] = 0x01;
+  data[1] = 0xA0;
+  write(fh,data,2);
+
+
+
+  close(fh);
+}
+
+void readHMC5883L(){
+  int fh;
+  uint8_t data[6];
+  uint8_t buffer[6];
+  init_i2c_device("/dev/i2c-1", HMC5883L, fh);
+
+  data[0] = 0x02;
+  data[1] = 0x01;
+  write(fh,data,2);
+  usleep(6000);
+  data[0] = 0x06;
+  write(fh,data,1);
+
+  Vector3 Magnetometer;
+
+ read(fh,&buffer,6);
+ Magnetometer.x = 5.0f*((buffer[0] << 8) | buffer[1]);
+ Magnetometer.z = 5.0f*((buffer[2] << 8) | buffer[3]);
+ Magnetometer.y = 5.0f*((buffer[4] << 8) | buffer[5]);
+  //read six bytes
+  float heading = atan2(Magnetometer.y, dist(Magnetometer.x, Magnetometer.z));
+  cout<<"x "<<Magnetometer.x<<endl;
+  cout<<"y "<<Magnetometer.y<<endl;
+  cout<<"z "<<Magnetometer.z<<endl;
+  
+  float declinationAngle = 0.0666;
+  heading += declinationAngle;
+
+  if(heading < 0)
+  heading += 2*M_PI;
+
+ // Check for wrap due to addition of declination.
+  if(heading > 2*M_PI)
+  heading -= 2*M_PI;
+
+
+  heading = heading*(180.0f/M_PI);
+  //cout<<heading<<endl;
+  Telemetry_Data.yaw = heading;
+  close(fh);
 
 }
 
@@ -442,7 +565,7 @@ void sendCommand(float channel1, float channel2, float channel3, float channel4)
 
 void controlLoop(){
     readMPU();
-
+    readHMC5883L();
 
   if (Control_Data.mode == 0) {
     //cout << "Manual mode" << endl;
@@ -753,10 +876,17 @@ void serialLoop(){
     }
 }
 int main(void){
+
+  cout<<"Program started"<<endl;
   Control_Data.chan1 = 50.0f;
   Control_Data.chan3 = 50.0f;
 
-  timer_start(controlLoop,20);
+  initHMC5883L();
+  timeval time;
+  gettimeofday(&time, NULL);
+  newstamp = (time.tv_sec * 1000) + (time.tv_usec / 1000);
+
+  timer_start(controlLoop,10);
   struct sigaction sigIntHandler;
   sigIntHandler.sa_handler = my_handler;
   sigemptyset(&sigIntHandler.sa_mask);
